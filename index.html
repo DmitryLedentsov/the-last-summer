@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Последнее лето — The Last Summer</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#171d1a;color:#e9e5d4;font-family:Georgia,serif}canvas{display:block;width:100%;height:100%;image-rendering:pixelated}#veil{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,#18201955 100%);box-shadow:inset 0 0 100px #252a2425}#menu{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(90deg,#131b18b8,#131b1838);padding:32px}#menu[hidden],#hint[hidden]{display:none}.panel{width:min(540px,100%);text-shadow:0 2px 16px #111}small{font:11px monospace;letter-spacing:.22em;color:#c8ceba}h1{font-weight:400;font-size:clamp(50px,8vw,94px);line-height:.9;margin:26px 0 20px;letter-spacing:-.06em}p{font-size:18px;line-height:1.5;color:#d3d4c5}button{font:inherit;color:#e9e5d4;border:1px solid #c8ceba80;background:#222d2580;padding:13px 28px;cursor:pointer}button:hover{background:#7d896b60}button:disabled{opacity:.45;cursor:wait}#status{margin-top:20px;font:11px/1.5 monospace;color:#c8ceba;max-width:480px}#hint{position:fixed;bottom:12%;left:50%;transform:translateX(-50%);text-align:center;text-shadow:0 2px 8px #000;font-size:19px;max-width:80vw}#dot{position:fixed;left:50%;top:50%;width:3px;height:3px;background:#faf3d0a0;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}#dot[hidden]{display:none}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head><body>
+<div id="veil"></div><div id="dot" hidden></div><div id="hint" hidden></div>
+<div id="menu"><div class="panel"><small>THE LAST SUMMER / 01</small><h1>Последнее<br>лето.</h1><p>Кажется, я уже был здесь.</p><button id="start" disabled>Вспомнить</button><p style="font-size:14px">WASD — идти · мышь — смотреть · Shift — быстрее · E — взаимодействие · Esc — пауза</p><div id="status">Загрузка пространства…</div></div></div>
+<script type="module">import('./game.js').catch(e=>{console.error(e);document.querySelector('#status').textContent='Не удалось запустить сцену. Проверь WebGL 2, интернет и запуск через HTTP.';});</script>
+</body></html>
