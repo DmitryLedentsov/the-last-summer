@@ -1,4 +1,4 @@
-import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=046';
+import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=047';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';

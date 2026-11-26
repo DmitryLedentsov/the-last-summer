@@ -1,4 +1,4 @@
-import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=046';
+import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=047';
 import * as THREE from 'three';
 import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';

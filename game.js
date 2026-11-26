@@ -1,4 +1,4 @@
-import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=046';
+import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=047';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
