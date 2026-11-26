@@ -12,6 +12,7 @@ export function createPlayerInput(){
   up(code){keys.delete(code);},
   rollAt(time){if(time>expires)pending=0;return pending;},
   consumeRoll(){pending=0;},
+  requestRoll(side,time){if(side===-1||side===1){pending=side;expires=time+.40;}},
   lookBy(amount){if(Number.isFinite(amount))look+=Math.abs(amount);},
   turnRate(dt,keyboard=0){const rate=look/Math.max(dt,1e-6)+Math.abs(keyboard);look=0;return rate;},
   clear(){keys.clear();pending=expires=look=0;}

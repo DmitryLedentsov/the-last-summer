@@ -1,4 +1,4 @@
-import {startSurvival} from './survival_combat.js?v=045';
+import {startSurvival} from './survival_combat.js?v=046';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';

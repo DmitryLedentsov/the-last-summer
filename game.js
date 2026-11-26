@@ -1,3 +1,4 @@
+import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=046';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
@@ -39,6 +40,8 @@ const colliders = [];
 const interactions = [];
 
 let pointerLocked = false;
+let touchQualityInitialized=false;
+const touch=createTouchControls({menu:menuEl,onLook:(x,y)=>{if(pointerLocked){player.yaw-=x*.00387;player.pitch=THREE.MathUtils.clamp(player.pitch-y*.00387,-1.45,1.45);}},onAction:name=>{if(name==='pause')pauseGame();else if(name==='interact'){const hit=nearInteraction();if(hit){currentMessage=hit.message;messageUntil=performance.now()+3200;}}}});
 let messageUntil = 0;
 let currentMessage = '';
 let swingTime = 0;
@@ -114,6 +117,7 @@ function nearInteraction() {
 }
 
 function pauseGame() {
+  pointerLocked=false;touch.stop();
   keys.clear();
   player.vel.set(0, 0);
   menuEl.hidden = false;
@@ -540,6 +544,7 @@ async function main() {
   }
 
   document.addEventListener('pointerlockchange', () => {
+    if(touch.active)return;
     pointerLocked = document.pointerLockElement === renderer.domElement;
     if (pointerLocked) {
       menuEl.hidden = true;
@@ -550,6 +555,7 @@ async function main() {
   });
 
   startEl.addEventListener('click', async () => {
+    if(touch.selected){touch.start();if(!touchQualityInitialized){applyTouchQuality(renderer,scene);touchQualityInitialized=true;}pointerLocked=true;menuEl.hidden=true;dotEl.hidden=false;return;}
     try {
       await renderer.domElement.requestPointerLock();
     } catch (error) {
@@ -559,7 +565,7 @@ async function main() {
   });
 
   document.addEventListener('mousemove', (event) => {
-    if (!pointerLocked) return;
+    if (!pointerLocked||touch.active) return;
     player.yaw -= event.movementX * 0.00215;
     player.pitch = THREE.MathUtils.clamp(player.pitch - event.movementY * 0.00215, -1.45, 1.45);
   });
@@ -576,7 +582,7 @@ async function main() {
     }
   });
   document.addEventListener('keyup', (event) => keys.delete(event.code));
-  window.addEventListener('blur', () => { keys.clear(); player.vel.set(0, 0); if(pointerLocked)document.exitPointerLock(); });
+  window.addEventListener('blur', () => { keys.clear(); player.vel.set(0, 0); if(touch.active)pauseGame();else if(document.pointerLockElement)document.exitPointerLock(); });
 
   function animate() {
     requestAnimationFrame(animate);
@@ -586,10 +592,8 @@ async function main() {
     if (pointerLocked) {
       const forward = Number(keys.has('KeyW')) - Number(keys.has('KeyS'));
       const right = Number(keys.has('KeyD')) - Number(keys.has('KeyA'));
-      const len = Math.hypot(forward, right) || 1;
-      const f = forward / len;
-      const r = right / len;
-      const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 4.6 : 2.6;
+      const {f,r}=mergeMotion(forward,right,touch.active?touch.state:null);
+      const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') || (touch.active&&touch.state.sprint) ? 4.6 : 2.6;
       const vx = (-Math.sin(player.yaw) * f + Math.cos(player.yaw) * r) * speed;
       const vz = (-Math.cos(player.yaw) * f - Math.sin(player.yaw) * r) * speed;
       player.vel.lerp(new THREE.Vector2(vx, vz), 1 - Math.exp(-10 * dt));
@@ -636,7 +640,7 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('keydown', (event) => {
   if (event.code === 'Escape' && pointerLocked) {
-    document.exitPointerLock();
+    if(touch.active)pauseGame();else if(document.pointerLockElement)document.exitPointerLock();
   }
 });
 

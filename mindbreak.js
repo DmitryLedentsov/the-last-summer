@@ -1,3 +1,4 @@
+import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=046';
 import * as THREE from 'three';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
@@ -131,16 +132,20 @@ const particleGeo=new THREE.BufferGeometry();particleGeo.setAttribute('position'
 const pos=new THREE.Vector3(spawn[0],height(...spawn)+1.68,spawn[1]);const keys=new Set(),vel=new THREE.Vector2(),target=new THREE.Vector2();let yaw=0,pitch=-.035,locked=false,bob=0,notice='',until=0;camera.position.copy(pos);camera.rotation.set(pitch,yaw,0);
 function nearby(){return points.filter(v=>Math.hypot(v.x-pos.x,v.z-pos.z)<(v.radius||3)).sort((a,b)=>Math.hypot(a.x-pos.x,a.z-pos.z)-Math.hypot(b.x-pos.x,b.z-pos.z))[0];}
 function walkable(x,z){return Math.abs(x)<87&&Math.abs(z)<87&&free(x,z,.31)&&Math.abs(height(x,z)-height(pos.x,pos.z))<Math.hypot(x-pos.x,z-pos.z)*1.45+.035;}
-function pause(){keys.clear();vel.set(0,0);menu.hidden=false;hint.hidden=true;dot.hidden=true;start.textContent='Продолжить';}
-start.onclick=()=>{try{const p=renderer.domElement.requestPointerLock();p?.catch?.(()=>status.textContent='Не удалось захватить мышь.');}catch{status.textContent='Захват мыши недоступен.';}};
-document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;dot.hidden=false;}else pause();});document.addEventListener('pointerlockerror',()=>status.textContent='Браузер не разрешил захват мыши.');
-document.addEventListener('mousemove',e=>{if(locked){yaw-=e.movementX*.0021;pitch=THREE.MathUtils.clamp(pitch-e.movementY*.0021,-1.48,1.48);}});
-document.addEventListener('keydown',e=>{if(!locked)return;keys.add(e.code);if(['KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyE'&&!e.repeat){const v=nearby();if(v){notice=v.message;until=performance.now()+4000;}}});
-document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();vel.set(0,0);if(locked)document.exitPointerLock();});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+function pause(){locked=false;touch.stop();keys.clear();vel.set(0,0);menu.hidden=false;hint.hidden=true;dot.hidden=true;start.textContent='Продолжить';}
+start.onclick=()=>{if(touch.selected){touch.start();if(!touchQualityInitialized){applyTouchQuality(renderer,scene);touchQualityInitialized=true;}locked=true;menu.hidden=true;dot.hidden=false;return;}try{const p=renderer.domElement.requestPointerLock();p?.catch?.(()=>status.textContent='Не удалось захватить мышь.');}catch{status.textContent='Захват мыши недоступен.';}};
+document.addEventListener('pointerlockchange',()=>{if(touch.active)return;locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;dot.hidden=false;}else pause();});document.addEventListener('pointerlockerror',()=>status.textContent='Браузер не разрешил захват мыши.');
+let touchQualityInitialized=false;
+ function interact(){const n=nearby();if(n){notice=n.message;until=performance.now()+4000;}}
+ function lookBy(x,y){if(locked){yaw-=x*.0021;pitch=THREE.MathUtils.clamp(pitch-y*.0021,-1.48,1.48);}}
+ const touch=createTouchControls({menu,onLook:(x,y)=>lookBy(x*1.8,y*1.8),onAction:name=>{if(name==='pause')pause();else if(name==='interact')interact();}});
+ document.addEventListener('mousemove',e=>{if(!touch.active)lookBy(e.movementX||0,e.movementY||0);});
+document.addEventListener('keydown',e=>{if(!locked)return;keys.add(e.code);if(['KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyE'&&!e.repeat)interact();if(e.code==='Escape'&&touch.active)pause();});
+document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();vel.set(0,0);if(touch.active)pause();else if(document.pointerLockElement)document.exitPointerLock();});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 status.textContent='Готово · WASD, мышь, Shift, E, Esc';start.disabled=false;
 let last=performance.now();
 renderer.setAnimationLoop(now=>{const dt=Math.min(.05,(now-last)/1000);last=now;
- if(locked){let f=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),r=Number(keys.has('KeyD'))-Number(keys.has('KeyA')),l=Math.hypot(f,r)||1;f/=l;r/=l;const speed=keys.has('ShiftLeft')||keys.has('ShiftRight')?5.5:3.1;target.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*speed,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*speed);vel.lerp(target,1-Math.exp(-12*dt));const x=pos.x+vel.x*dt,z=pos.z+vel.y*dt;if(walkable(x,pos.z))pos.x=x;else vel.x=0;if(walkable(pos.x,z))pos.z=z;else vel.y=0;pos.y=height(pos.x,pos.z)+1.68;bob+=vel.length()*dt*3.1;camera.position.set(pos.x,pos.y+Math.sin(bob)*Math.min(.026,vel.length()*.006),pos.z);camera.rotation.set(pitch,yaw,0);const v=nearby();hint.hidden=now>=until&&!v;hint.textContent=now<until?notice:v?.prompt||'';}
+ if(locked){const {f,r}=mergeMotion(Number(keys.has('KeyW'))-Number(keys.has('KeyS')),Number(keys.has('KeyD'))-Number(keys.has('KeyA')),touch.active?touch.state:null);const speed=keys.has('ShiftLeft')||keys.has('ShiftRight')||(touch.active&&touch.state.sprint)?5.5:3.1;target.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*speed,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*speed);vel.lerp(target,1-Math.exp(-12*dt));const x=pos.x+vel.x*dt,z=pos.z+vel.y*dt;if(walkable(x,pos.z))pos.x=x;else vel.x=0;if(walkable(pos.x,z))pos.z=z;else vel.y=0;pos.y=height(pos.x,pos.z)+1.68;bob+=vel.length()*dt*3.1;camera.position.set(pos.x,pos.y+Math.sin(bob)*Math.min(.026,vel.length()*.006),pos.z);camera.rotation.set(pitch,yaw,0);const v=nearby();hint.hidden=now>=until&&!v;hint.textContent=now<until?notice:v?.prompt||'';}
  sky.position.copy(camera.position);core.rotation.y+=dt*.13;core.position.y=3.6+Math.sin(now*.0012)*.25;
  for(const a of animated){a.o.rotation[a.axis]+=dt*a.speed;if(a.base!==undefined)a.o.position.y=a.base+Math.sin(now*.0008+a.phase)*a.amp;}
  for(const a of lights)a.l.intensity=a.power*(.94+.06*Math.sin(now*.0011+a.phase));dust.position.y=Math.sin(now*.00027)*.35;renderer.render(scene,camera);

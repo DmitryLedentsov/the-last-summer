@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>The Last Summer — Night Courtyard Prototype</title>
   <style>
     * { box-sizing: border-box; }
@@ -76,7 +76,7 @@
     </div>
   </div>
   <script type="module">
-    import('./game.js?v=02').catch((error) => {
+    import('./game.js?v=046').catch((error) => {
       console.error(error);
       document.querySelector('#status').textContent = 'Ошибка запуска. Открой проект через HTTP и проверь доступ к WebGL 2.';
     });
