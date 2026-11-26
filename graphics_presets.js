@@ -1,7 +1,7 @@
-import {createSceneStyles} from './scene_style.js?v=051';
-import {createPipeline} from './graphics_pipeline.js?v=051';
-import {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=051';
-export {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=051';
+import {createSceneStyles} from './scene_style.js?v=052';
+import {createPipeline} from './graphics_pipeline.js?v=052';
+import {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=052';
+export {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=052';
 export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],onChange=()=>{}}){
  let style=0,quality=2,postFailed=false,appliedStyle=-1;
  const query=new URLSearchParams(location.search);
@@ -9,7 +9,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  const requestedQuality=QUALITIES.findIndex(q=>q.name===query.get('quality')?.toUpperCase());
  if(requestedStyle>=0)style=requestedStyle;if(requestedQuality>=0)quality=requestedQuality;
  const bufferSize=new T.Vector2(),applyTextures=createTextureProfiles(T,collectTextures(scene,extraTextures),renderer.capabilities.getMaxAnisotropy());
- const looks=createSceneStyles(T,{scene,renderer,sun,terrain,actors,height});
+ const looks=createSceneStyles(T,{scene,renderer,sun,actors,height});
  const pipeline=createPipeline(T,renderer,scene,camera);
  function resize(){
   const cfg=graphicsSettings(style,quality);

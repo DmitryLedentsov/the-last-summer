@@ -1,4 +1,4 @@
-import {startSurvival} from './survival_combat.js?v=051';
+import {startSurvival} from './survival_combat.js?v=052';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
@@ -44,7 +44,7 @@ function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o);colliders.pus
 function trunk(x,z,r){colliders.push({x,z,r});}
 function free(x,z,r=.28){return !colliders.some(c=>hitsCollider(c,x,z,r));}
 const treeBatches=[];
-function batch(t,points,shadow=false,isTree=false,role=''){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.userData.lookRole=role;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
+function batch(t,points,shadow=false,isTree=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
 const stone=new THREE.MeshStandardMaterial({color:0x9c9c87,map:tune(await load('curated/nature/stone.JPG',textures)),roughness:1});const wood=new THREE.MeshStandardMaterial({color:0x887255,roughness:1}), iron=new THREE.MeshStandardMaterial({color:0x545b58,roughness:1});
 function box(w,h,d,m,x,y,z,parent=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
 function bench(x,z,a){const b=new THREE.Group();for(const xx of [-.85,.85]){box(.12,.5,.5,iron,xx,.25,0,b);box(.08,.85,.08,iron,xx,.48,-.22,b);}for(let i=0;i<3;i++)box(2.1,.06,.15,wood,0,.52,-.18+i*.17,b);for(let i=0;i<2;i++)box(2.1,.15,.06,wood,0,.75+i*.17,-.23,b);groundPlace(b,x,z,a);aabb(b);interactions.push({x,z,message:'Кажется, кто-то ещё недавно сидел здесь.',prompt:'E — осмотреть лавочку'});}
@@ -151,7 +151,7 @@ function plantChance(key,x,z){const d=level.distance(x,z),edge=Math.exp(-((d-2.5
  return .18+.61*p+.20*edge;
 }
 for(const [key,collection,name,h,count,min,max] of plantSpecs){const t=template(collection,name,h),points=[];if(!t)continue;for(let n=0;n<count*16&&points.length<count;n++){let x,z;if(rnd()<.74){const [cx,cz,r]=clusters[key][Math.floor(rnd()*clusters[key].length)],a=rnd()*Math.PI*2,d=Math.sqrt(rnd())*r;x=cx+Math.cos(a)*d;z=cz+Math.sin(a)*d;}else{x=(rnd()-.5)*(level.size-5);z=(rnd()-.5)*(level.size-5);}if(Math.abs(x)>level.size/2-1||Math.abs(z)>level.size/2-1||level.distance(x,z)<.72||level.road(x,z)<(sunset?2.0:1.6)||!free(x,z,key==='bush'?.6:.08))continue;if(sunset&&Math.abs(x-houseSite.x)<22.2&&Math.abs(z-houseSite.z)<12.5)continue;if(!sunset&&((x>6.4&&x<15.5&&Math.abs(z-10)<1.15)||pondDistance(x,z)<(key==='reed'?.94:.99)||(x>-27.5&&x<-13.5&&z>-24.3&&z<-19.8)))continue;if(rnd()>plantChance(key,x,z))continue;const s=min+(max-min)*rnd()**1.7;points.push([x,z,s,rnd()*Math.PI*2]);if(key==='bush'||key==='stump')trunk(x,z,.28*s);}
- batch(t,points,['bush','rock','stone','stump'].includes(key),false,key);}
+ batch(t,points,['bush','rock','stone','stump'].includes(key));}
 for(const [index,shape] of treeReplacements)colliders[index]=shape;
 if(sunset)addMeadowFlowers(THREE,scene,level,height,free);
 // Batch repeated hand-built props (rails, fences, dock planks, wires) by material.
