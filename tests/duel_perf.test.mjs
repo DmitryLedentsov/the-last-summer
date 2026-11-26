@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {chunkIndices,poseInterval,takePoseDelta,makeSightCache} from '../duel_perf.js';
+const pts=[[-1,-1],[0,0],[35,35],[36,0],[-36,0],[-37,0]],groups=chunkIndices(pts,36);
+assert.deepEqual(groups.flat().sort((a,b)=>a-b),[0,1,2,3,4,5]);assert(groups.some(g=>g.join(',')==='1,2'));assert.equal(groups.length,5);
+const a={};let sum=0,count=0;for(let i=0;i<60;i++){let d=takePoseDelta(a,1/60,50**2);if(d){count++;sum+=d;}}assert.equal(count,15);assert(Math.abs(sum-1)<1e-8);
+assert.equal(poseInterval(20**2),1/30);assert.equal(poseInterval(100**2,true),0);assert.equal(takePoseDelta(a,1/60,50**2,true),1/60);
+let n=0;const cast=()=>++n%2===1,seen=makeSightCache(),from={x:0,y:0,z:0},to={x:2,y:0,z:0},b={};
+assert.equal(seen(a,b,from,to,0,cast),true);assert.equal(seen(a,b,from,to,.05,cast),true);assert.equal(n,1);
+assert.equal(seen(a,b,from,to,.11,cast),false);assert.equal(seen(a,b,{...from,x:1},to,.12,cast),true);b.generation=1;assert.equal(seen(a,b,{...from,x:1},to,.13,cast),false);
+console.log('PASS chunk membership, pose time accumulation/forced update, LOS expiry/movement/respawn');

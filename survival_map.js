@@ -1,5 +1,6 @@
-import {startSurvival} from './survival_combat.js?v=043';
+import {startSurvival} from './survival_combat.js?v=044';
 import * as THREE from 'three';
+import {splitStaticInstances} from './duel_perf.js?v=044';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
@@ -168,5 +169,9 @@ function batchStaticProps(){
  const m=new THREE.InstancedMesh(g,first.material,list.length),matrix=new THREE.Matrix4();list.forEach(({o,scale},i)=>{matrix.copy(o.matrixWorld).scale(scale);m.setMatrixAt(i,matrix);o.removeFromParent();o.geometry.dispose();});m.castShadow=first.castShadow;m.receiveShadow=first.receiveShadow;m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();scene.add(m);}
 }
 batchStaticProps();
-
-await startSurvival({THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches});
+const chunkedTrees=splitStaticInstances(THREE,scene,treeBatches);
+scene.updateMatrixWorld(true);
+// Everything already in this scene is static. Characters/effects are added afterwards.
+for(const child of scene.children)child.traverse(o=>{o.matrixAutoUpdate=false;});
+renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+await startSurvival({THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches:chunkedTrees});
