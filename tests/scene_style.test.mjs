@@ -24,7 +24,7 @@ const originalGeometry=terrain.geometry;
 const originalAttributes=terrain.geometry.attributes;
 const looks=createSceneStyles(T,{scene,renderer,sun,actors:[],height:()=>0});
 const baseline={sunIntensity:2.15,hemiIntensity:1.55,fogDensity:.0105,exposure:1.15};
-for(let i=0;i<5;i++)for(const style of ['STYLIZED','DIORAMA','CINEMATIC','RETRO']){
+for(let i=0;i<5;i++)for(const style of ['DIORAMA','DIORAMA MINIATURE','DIORAMA CONTRAST','DIORAMA DREAM','RETRO']){
  looks.apply(style);looks.update();
  for(let j=0;j<originalMaterials.length;j++)assert.equal(scene.children[j].material,originalMaterials[j]);
  assert.equal(terrain.geometry,originalGeometry);assert.equal(terrain.geometry.attributes,originalAttributes);

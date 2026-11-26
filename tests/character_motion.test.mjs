@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {analogSpeed,approach,gaitStride,rollPose,movementFacing} from '../character_motion.js';
+const close=(a,b)=>assert(Math.abs(a-b)<1e-8);
+close(analogSpeed(0),0);close(analogSpeed(1),4.7);close(analogSpeed(1,{stance:true}),1.12);close(analogSpeed(1,{canSprint:false}),2.65);
+for(let i=1;i<=100;i++)assert(analogSpeed(i/100)>=analogSpeed((i-1)/100));
+assert(Math.abs(analogSpeed(.72001)-analogSpeed(.71999))<.001);
+close(gaitStride(0,.5).lift,0);close(gaitStride(.6,.5).offset,-.25);assert(gaitStride(.8,.5).lift>.1);
+close(rollPose(0).angle,0);close(rollPose(1).angle,2*Math.PI);close(rollPose(1).height,.88);assert(rollPose(.5).height<.5);
+close(movementFacing(0,1,0,false,0),Math.PI/2);close(movementFacing(1,0,0,false,0),1);close(movementFacing(0,1,0,true,.2),.2);
+assert(approach(0,1,1/60,12)>0);console.log('PASS analog movement, walk phases, roll poses and movement-facing');

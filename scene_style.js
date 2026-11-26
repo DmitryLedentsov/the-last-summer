@@ -2,9 +2,10 @@
 // texture assets, shader hooks, vertex attributes or material colors.
 export const LIGHT_PROFILES=Object.freeze({
  RETRO:Object.freeze({sun:1,fill:1,fog:1,exposure:1,contact:0}),
- STYLIZED:Object.freeze({sun:1.04,fill:1.08,fog:.8,exposure:1,contact:.25}),
  DIORAMA:Object.freeze({sun:1.06,fill:1.14,fog:.7,exposure:1,contact:.48}),
- CINEMATIC:Object.freeze({sun:1.05,fill:.98,fog:.95,exposure:1,contact:.35})
+ 'DIORAMA MINIATURE':Object.freeze({sun:1.06,fill:1.14,fog:.6,exposure:1,contact:.48}),
+ 'DIORAMA CONTRAST':Object.freeze({sun:1.14,fill:.92,fog:.65,exposure:1,contact:.58}),
+ 'DIORAMA DREAM':Object.freeze({sun:.94,fill:1.18,fog:.8,exposure:1,contact:.36})
 });
 export function lightingForStyle(original,style){
  const p=LIGHT_PROFILES[style];if(!p)throw new Error('Unknown graphics style: '+style);

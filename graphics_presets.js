@@ -1,7 +1,7 @@
-import {createSceneStyles} from './scene_style.js?v=052';
-import {createPipeline} from './graphics_pipeline.js?v=052';
-import {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=052';
-export {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=052';
+import {createSceneStyles} from './scene_style.js?v=053';
+import {createPipeline} from './graphics_pipeline.js?v=053';
+import {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=053';
+export {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=053';
 export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],onChange=()=>{}}){
  let style=0,quality=2,postFailed=false,appliedStyle=-1;
  const query=new URLSearchParams(location.search);
@@ -27,7 +27,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  }
  function render(mode=1,zoom=false){
   looks.update();const cfg=graphicsSettings(style,quality,{mode,zoom});
-  if(postFailed||cfg.s.retro||!(cfg.aa||cfg.blur||cfg.bloom||cfg.grade||cfg.ao)){renderer.render(scene,camera);return;}
+  if(postFailed||cfg.s.retro||!(cfg.aa||cfg.blur||cfg.bloom||cfg.grade||cfg.ao||cfg.contrast)){renderer.render(scene,camera);return;}
   const oldAuto=renderer.info.autoReset;renderer.info.autoReset=false;renderer.info.reset();
   try{renderer.getDrawingBufferSize(bufferSize);pipeline.render(cfg,bufferSize.x,bufferSize.y);}
   catch(error){console.warn('Graphics pipeline disabled:',error);postFailed=true;onChange(label());renderer.setRenderTarget(null);renderer.info.reset();renderer.render(scene,camera);}
