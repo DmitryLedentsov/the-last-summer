@@ -4,7 +4,7 @@ export function legReach(upper,lower,distance){
  const bounded=angle=>Math.sqrt(upper*upper+lower*lower+2*upper*lower*Math.cos(angle));
  return Math.max(bounded(110*Math.PI/180),Math.min(bounded(7*Math.PI/180),distance));
 }
-export function createLegSolver(T,root,legs){
+export function createLegSolver(T,root,legs,{forwardOnly=false}={}){
  const v=()=>new T.Vector3(),q=()=>new T.Quaternion(),world=b=>b.getWorldPosition(v());
  const project=(n,axis)=>n.clone().addScaledVector(axis,-n.dot(axis));
  function basis(axis,normal){
@@ -17,7 +17,7 @@ export function createLegSolver(T,root,legs){
  const entries=legs.map(([hip,knee,foot])=>{
   const a=world(hip),b=world(knee),c=world(foot),axis=c.clone().sub(a).normalize();
   let pole=project(b.clone().sub(a),axis),fallback=project(forward,axis);
-  if(pole.length()<.012||pole.dot(fallback)<=0)pole=fallback;
+  if(forwardOnly||pole.length()<.012||pole.dot(fallback)<=0)pole=fallback;
   if(pole.lengthSq()<1e-8)pole=project(new T.Vector3(1,0,0).applyQuaternion(rq),axis);
   pole.normalize();
   const normal=axis.clone().cross(pole).normalize();

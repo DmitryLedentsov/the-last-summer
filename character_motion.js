@@ -34,12 +34,12 @@ export function createPoseLayer(bones){
   capture(){unique.forEach((b,i)=>base[i].copy(b.quaternion));}};
 }
 
-export function locomotionMode(speed,stance,blocked=false){
+export function locomotionMode(speed,stance,blocked=false,sprint=true){
  if(blocked||speed<=.10)return 'idle';
  if(stance)return 'sneak';
- return speed>2.95?'run':'walk';
+ return sprint&&speed>2.95?'run':'walk';
 }
 export function locomotionRate(mode,speed,backward=false){
- const rate=mode==='run'?clamp(speed/3.8,.7,1.35):mode==='walk'?clamp(speed/1.65,.30,1.8):mode==='sneak'?clamp(speed/.85,.30,1.5):1;
+ const rate=mode==='run'?clamp(speed/3.8,.7,1.25):mode==='walk'?clamp(speed/1.8,.15,1.48):mode==='sneak'?clamp(speed/.85,.15,1.32):1;
  return backward&&(mode==='walk'||mode==='sneak')?-rate:rate;
 }

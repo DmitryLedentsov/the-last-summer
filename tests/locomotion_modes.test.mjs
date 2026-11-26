@@ -12,3 +12,5 @@ assert.equal(locomotionMode(analogSpeed(1,{canSprint:exhausted.available}),false
 assert(locomotionRate('sneak',1.12,true)<0);
 assert(locomotionRate('walk',2.65,false)>0);
 console.log('PASS distinct walk/run/sneak states and exhausted sprint fallback');
+
+assert.equal(locomotionMode(4.7,false,false,false),'walk');assert.equal(locomotionMode(4.7,true,false,true),'sneak');assert(locomotionRate('walk',2.65)<=1.48);assert(locomotionRate('sneak',1.12)<=1.32);
