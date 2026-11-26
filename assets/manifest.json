@@ -1,44 +1,517 @@
 {
-  "version": 1,
-  "sources": [
-    "abanodehousepack",
-    "PSX Forest Level by Stark Crafts",
-    "PSX Daysky HDRI",
-    "PS1 Dark Fantasy Horror Game Assets by Stark Crafts"
-  ],
-  "files": {
-    "assets/houses/house03.fbx": 231996,
-    "assets/houses/house05.fbx": 156652,
-    "assets/houses/house06.fbx": 153100,
-    "assets/houses/house07.fbx": 260428,
-    "assets/houses/1h.png": 212666,
-    "assets/houses/2h.png": 132394,
-    "assets/houses/3h.png": 134002,
-    "assets/houses/4h.png": 116015,
-    "assets/houses/5h.png": 185745,
-    "assets/houses/6h.png": 240207,
-    "assets/forest/forest.fbx": 551564,
-    "assets/ground/PSX_Seamless_ForestDryGround_128px.png": 43090,
-    "assets/ground/PSX_Seamless_ForestEarthGround_128px.png": 47207,
-    "assets/ground/PSX_Seamless_ForestGravel_Ground_128px.png": 41180,
-    "assets/ground/PSX_Seamless_ForestWildGround_128px.png": 41807,
-    "assets/ground/PSX_Seamless_ShortForestGrass_128px.png": 47932,
-    "assets/ground/PSX_Seamless_WildForestClover_128px.png": 39807,
-    "assets/ground/PSX_Seamless_WildForestGrass_128px.png": 46550,
-    "assets/sky/DAYSKY.hdr": 6207771,
-    "assets/nature/dirt.JPG": 103982,
-    "assets/nature/grass.jpg": 90331,
-    "assets/nature/ivy.JPG": 50360,
-    "assets/nature/leaf.JPG": 60337,
-    "assets/nature/nature.fbx": 68876,
-    "assets/nature/rock.jpg": 47001,
-    "assets/nature/sky.JPG": 81797,
-    "assets/nature/stone.JPG": 86393,
-    "assets/nature/stonebuild.JPG": 74849,
-    "assets/nature/stonewall.JPG": 44158,
-    "assets/nature/treeleaf.jpg": 45975,
-    "assets/nature/water.jpg": 102440,
-    "assets/nature/wood.JPG": 53920,
-    "assets/nature/woodplank.JPG": 32369
-  }
+  "version": 2,
+  "files": [
+    {
+      "path": "assets/README.md",
+      "size": 1599
+    },
+    {
+      "path": "assets/curated/forest/forest_collection.fbx",
+      "size": 551564
+    },
+    {
+      "path": "assets/curated/ground/PSX_Seamless_ForestDryGround_128px.png",
+      "size": 43090
+    },
+    {
+      "path": "assets/curated/ground/PSX_Seamless_ForestEarthGround_128px.png",
+      "size": 47207
+    },
+    {
+      "path": "assets/curated/ground/PSX_Seamless_ForestGravel_Ground_128px.png",
+      "size": 41180
+    },
+    {
+      "path": "assets/curated/ground/PSX_Seamless_ForestWildGround_128px.png",
+      "size": 41807
+    },
+    {
+      "path": "assets/curated/ground/PSX_Seamless_ShortForestGrass_128px.png",
+      "size": 47932
+    },
+    {
+      "path": "assets/curated/ground/PSX_Seamless_WildForestClover_128px.png",
+      "size": 39807
+    },
+    {
+      "path": "assets/curated/ground/PSX_Seamless_WildForestGrass_128px.png",
+      "size": 46550
+    },
+    {
+      "path": "assets/curated/houses/1h.png",
+      "size": 212666
+    },
+    {
+      "path": "assets/curated/houses/2h.png",
+      "size": 132394
+    },
+    {
+      "path": "assets/curated/houses/3h.png",
+      "size": 134002
+    },
+    {
+      "path": "assets/curated/houses/4h.png",
+      "size": 116015
+    },
+    {
+      "path": "assets/curated/houses/5h.png",
+      "size": 185745
+    },
+    {
+      "path": "assets/curated/houses/6h.png",
+      "size": 240207
+    },
+    {
+      "path": "assets/curated/houses/house01.fbx",
+      "size": 135788
+    },
+    {
+      "path": "assets/curated/houses/house02.fbx",
+      "size": 207388
+    },
+    {
+      "path": "assets/curated/houses/house03.fbx",
+      "size": 231996
+    },
+    {
+      "path": "assets/curated/houses/house04.fbx",
+      "size": 231772
+    },
+    {
+      "path": "assets/curated/houses/house05.fbx",
+      "size": 156652
+    },
+    {
+      "path": "assets/curated/houses/house06.fbx",
+      "size": 153100
+    },
+    {
+      "path": "assets/curated/houses/house07.fbx",
+      "size": 260428
+    },
+    {
+      "path": "assets/curated/houses/house08.fbx",
+      "size": 260284
+    },
+    {
+      "path": "assets/curated/nature/dirt.JPG",
+      "size": 103982
+    },
+    {
+      "path": "assets/curated/nature/grass.jpg",
+      "size": 90331
+    },
+    {
+      "path": "assets/curated/nature/ivy.JPG",
+      "size": 50360
+    },
+    {
+      "path": "assets/curated/nature/leaf.JPG",
+      "size": 60337
+    },
+    {
+      "path": "assets/curated/nature/nature_collection.fbx",
+      "size": 68876
+    },
+    {
+      "path": "assets/curated/nature/rock.jpg",
+      "size": 47001
+    },
+    {
+      "path": "assets/curated/nature/sky.JPG",
+      "size": 81797
+    },
+    {
+      "path": "assets/curated/nature/stone.JPG",
+      "size": 86393
+    },
+    {
+      "path": "assets/curated/nature/stonebuild.JPG",
+      "size": 74849
+    },
+    {
+      "path": "assets/curated/nature/stonewall.JPG",
+      "size": 44158
+    },
+    {
+      "path": "assets/curated/nature/treeleaf.jpg",
+      "size": 45975
+    },
+    {
+      "path": "assets/curated/nature/water.jpg",
+      "size": 102440
+    },
+    {
+      "path": "assets/curated/nature/wood.JPG",
+      "size": 53920
+    },
+    {
+      "path": "assets/curated/nature/woodplank.JPG",
+      "size": 32369
+    },
+    {
+      "path": "assets/curated/palast/SAM_8937.JPG",
+      "size": 98176
+    },
+    {
+      "path": "assets/curated/palast/SAM_8970.JPG",
+      "size": 94283
+    },
+    {
+      "path": "assets/curated/palast/SAM_9023.JPG",
+      "size": 52413
+    },
+    {
+      "path": "assets/curated/palast/SAM_9024.JPG",
+      "size": 59634
+    },
+    {
+      "path": "assets/curated/palast/SAM_9030.JPG",
+      "size": 31524
+    },
+    {
+      "path": "assets/curated/palast/SAM_9034.JPG",
+      "size": 33170
+    },
+    {
+      "path": "assets/curated/palast/SAM_9035.JPG",
+      "size": 51090
+    },
+    {
+      "path": "assets/curated/palast/SAM_9036.JPG",
+      "size": 33217
+    },
+    {
+      "path": "assets/curated/palast/SAM_9037.JPG",
+      "size": 29888
+    },
+    {
+      "path": "assets/curated/palast/palast_collection.fbx",
+      "size": 57244
+    },
+    {
+      "path": "assets/curated/skull/MagicRunes_Emission.png",
+      "size": 2465
+    },
+    {
+      "path": "assets/curated/skull/PS1_Skeleton.fbx",
+      "size": 84204
+    },
+    {
+      "path": "assets/curated/skull/PS1_Skull.fbx",
+      "size": 18236
+    },
+    {
+      "path": "assets/curated/skull/ps1_Sword.fbx",
+      "size": 21932
+    },
+    {
+      "path": "assets/curated/skull/ps1_skeleton_256x256_transp.png",
+      "size": 75864
+    },
+    {
+      "path": "assets/curated/skull/ps1_skull_256x256.png",
+      "size": 50786
+    },
+    {
+      "path": "assets/curated/skull/ps1_sword_128x128.jpg",
+      "size": 3584
+    },
+    {
+      "path": "assets/curated/sky/DAYSKY.hdr",
+      "size": 6207771
+    },
+    {
+      "path": "assets/curated/sky/DAYSKY_Preview.jpg",
+      "size": 87803
+    },
+    {
+      "path": "assets/curated/sky/PSX_NIGHTSKY.hdr",
+      "size": 5414601
+    },
+    {
+      "path": "assets/curated/sky/PSX_NIGHTSKY_PREview.jpg",
+      "size": 128065
+    },
+    {
+      "path": "assets/derived/mist.jpg",
+      "size": 68896
+    },
+    {
+      "path": "assets/derived/sunset.jpg",
+      "size": 75432
+    },
+    {
+      "path": "assets/derived/twilight.jpg",
+      "size": 65105
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/PS1_NaturAssetCollection.fbx",
+      "size": 68876
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/dirt.JPG",
+      "size": 103982
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/grass.jpg",
+      "size": 90331
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/ivy.JPG",
+      "size": 50360
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/leaf.JPG",
+      "size": 60337
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/rock.jpg",
+      "size": 47001
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/sky.JPG",
+      "size": 81797
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/stone.JPG",
+      "size": 86393
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/stonebuild.JPG",
+      "size": 74849
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/stonewall.JPG",
+      "size": 44158
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/treeleaf.jpg",
+      "size": 45975
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/water.jpg",
+      "size": 102440
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/wood.JPG",
+      "size": 53920
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/woodplank.JPG",
+      "size": 32369
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/PS1_PalastAssetCollection.fbx",
+      "size": 57244
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_8937.JPG",
+      "size": 98176
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_8970.JPG",
+      "size": 94283
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_9023.JPG",
+      "size": 52413
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_9024.JPG",
+      "size": 59634
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_9030.JPG",
+      "size": 31524
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_9034.JPG",
+      "size": 33170
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_9035.JPG",
+      "size": 51090
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_9036.JPG",
+      "size": 33217
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Palast_Assets/SAM_9037.JPG",
+      "size": 29888
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Skull/MagicRunes_Emission.png",
+      "size": 2465
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Skull/PS1_Skeleton.fbx",
+      "size": 84204
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Skull/PS1_Skull.fbx",
+      "size": 18236
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Skull/ps1_Sword.fbx",
+      "size": 21932
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Skull/ps1_skeleton_256x256_transp.png",
+      "size": 75864
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Skull/ps1_skull_256x256.png",
+      "size": 50786
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_Skull/ps1_sword_128x128.jpg",
+      "size": 3584
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_StarkCraftsLogo/128xBlueLich_Ref.png",
+      "size": 14782
+    },
+    {
+      "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_StarkCraftsLogo/StarkCraftsLogo.fbx",
+      "size": 24060
+    },
+    {
+      "path": "assets/raw/PSX_Daysky_HDRI/DAYSKY.hdr",
+      "size": 6207771
+    },
+    {
+      "path": "assets/raw/PSX_Daysky_HDRI/DAYSKY_Preview.jpg",
+      "size": 87803
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_ForestGround_Tex/PSX_Seamless_ForestDryGround_128px.png",
+      "size": 43090
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_ForestGround_Tex/PSX_Seamless_ForestEarthGround_128px.png",
+      "size": 47207
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_ForestGround_Tex/PSX_Seamless_ForestGravel_Ground_128px.png",
+      "size": 41180
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_ForestGround_Tex/PSX_Seamless_ForestWildGround_128px.png",
+      "size": 41807
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_ForestGround_Tex/PSX_Seamless_ShortForestGrass_128px.png",
+      "size": 47932
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_ForestGround_Tex/PSX_Seamless_WildForestClover_128px.png",
+      "size": 39807
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_ForestGround_Tex/PSX_Seamless_WildForestGrass_128px.png",
+      "size": 46550
+    },
+    {
+      "path": "assets/raw/PSX_Forest_Level_byStarkCrafts/PSX_Forest_AssetCollection_byStarkCrafts.fbx",
+      "size": 551564
+    },
+    {
+      "path": "assets/raw/PSX_Nightsky_HDRI/PSX_NIGHTSKY.hdr",
+      "size": 5414601
+    },
+    {
+      "path": "assets/raw/PSX_Nightsky_HDRI/PSX_NIGHTSKY_PREview.jpg",
+      "size": 128065
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/blend/untitled.blend",
+      "size": 1169948
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/blend/untitled.blend1",
+      "size": 1169948
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house01.fbx",
+      "size": 135788
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house02.fbx",
+      "size": 207388
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house03.fbx",
+      "size": 231996
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house04.fbx",
+      "size": 231772
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house05.fbx",
+      "size": 156652
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house06.fbx",
+      "size": 153100
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house07.fbx",
+      "size": 260428
+    },
+    {
+      "path": "assets/raw/abanodehousepack/models/fbx/house08.fbx",
+      "size": 260284
+    },
+    {
+      "path": "assets/raw/abanodehousepack/preview/#U0421#U043d#U0438#U043c#U043e#U043a #U044d#U043a#U0440#U0430#U043d#U0430 2026-05-25 153343.png",
+      "size": 1467276
+    },
+    {
+      "path": "assets/raw/abanodehousepack/preview/#U0421#U043d#U0438#U043c#U043e#U043a #U044d#U043a#U0440#U0430#U043d#U0430 2026-05-25 153355.png",
+      "size": 1618409
+    },
+    {
+      "path": "assets/raw/abanodehousepack/preview/#U0421#U043d#U0438#U043c#U043e#U043a #U044d#U043a#U0440#U0430#U043d#U0430 2026-05-25 190625.png",
+      "size": 1442546
+    },
+    {
+      "path": "assets/raw/abanodehousepack/preview/#U0421#U043d#U0438#U043c#U043e#U043a #U044d#U043a#U0440#U0430#U043d#U0430 2026-05-25 190637.png",
+      "size": 910575
+    },
+    {
+      "path": "assets/raw/abanodehousepack/preview/#U0421#U043d#U0438#U043c#U043e#U043a #U044d#U043a#U0440#U0430#U043d#U0430 2026-05-25 221612.png",
+      "size": 1245811
+    },
+    {
+      "path": "assets/raw/abanodehousepack/preview/#U0421#U043d#U0438#U043c#U043e#U043a #U044d#U043a#U0440#U0430#U043d#U0430 2026-05-25 221630.png",
+      "size": 1204332
+    },
+    {
+      "path": "assets/raw/abanodehousepack/texture/1h.png",
+      "size": 212666
+    },
+    {
+      "path": "assets/raw/abanodehousepack/texture/2h.png",
+      "size": 132394
+    },
+    {
+      "path": "assets/raw/abanodehousepack/texture/3h.png",
+      "size": 134002
+    },
+    {
+      "path": "assets/raw/abanodehousepack/texture/4h.png",
+      "size": 116015
+    },
+    {
+      "path": "assets/raw/abanodehousepack/texture/5h.png",
+      "size": 185745
+    },
+    {
+      "path": "assets/raw/abanodehousepack/texture/6h.png",
+      "size": 240207
+    }
+  ]
 }

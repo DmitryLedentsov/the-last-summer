@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>The Last Summer — Night Courtyard Prototype</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #030507; color: #d7dfdf; font-family: Georgia, serif; }
+    canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+    #veil { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 35%, transparent 35%, rgba(0,0,0,.15) 100%); box-shadow: inset 0 0 100px rgba(0,0,0,.18); }
+    #menu {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: linear-gradient(180deg, rgba(0,0,0,.52), rgba(0,0,0,.72));
+      padding: 24px;
+    }
+    .panel {
+      max-width: 560px; width: 100%;
+      background: rgba(8, 13, 16, .72); border: 1px solid rgba(120,170,170,.25);
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      padding: 24px 24px 20px; border-radius: 10px;
+    }
+    h1 { margin: 8px 0 8px; line-height: .95; font-size: clamp(42px, 8vw, 72px); font-weight: 500; color: #d9f8f4; }
+    p, small, li { color: #b8c5c5; }
+    small { letter-spacing: .12em; text-transform: uppercase; }
+    button {
+      appearance: none; border: 1px solid rgba(125, 230, 220, .42); border-radius: 999px;
+      color: #defcf8; background: rgba(20, 64, 68, .65); padding: 12px 22px; cursor: pointer;
+      font: inherit; margin-top: 6px;
+    }
+    button:hover { background: rgba(26, 82, 86, .75); }
+    button:disabled { opacity: .65; cursor: wait; }
+    #status { margin-top: 16px; min-height: 1.4em; color: #8db9b3; }
+    #hint {
+      position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+      padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(115,170,170,.26);
+      background: rgba(3, 8, 9, .68); color: #d7fffb; pointer-events: none; white-space: nowrap;
+    }
+    #dot {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 3px; height: 3px; border-radius: 50%; background: rgba(240,255,255,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.35);
+      pointer-events: none;
+    }
+    .keys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .keys span { border: 1px solid rgba(255,255,255,.15); border-bottom-width: 2px; padding: 6px 10px; border-radius: 8px; color: #e0eaea; font-size: 14px; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="veil"></div>
+  <div id="dot" hidden></div>
+  <div id="hint" hidden></div>
+  <div id="menu">
+    <div class="panel">
+      <small>The Last Summer / Night Courtyard Prototype</small>
+      <h1>Последнее<br>лето.</h1>
+      <p>Ночной двор, вырванный из мира. Дом, деревья, трава и странные ритуальные следы — как будто забытый кусок пространства дрейфует в пустоте.</p>
+      <button id="start" disabled>Войти во двор</button>
+      <div class="keys">
+        <span>WASD — идти</span>
+        <span>мышь — смотреть</span>
+        <span>Shift — быстрее</span>
+        <span>E — взаимодействие</span>
+        <span>Esc — пауза</span>
+      </div>
+      <p><a href="./index.html" style="color:#b4d5d0">← Выбор локации</a></p><div id="status">Подготовка сцены…</div>
+    </div>
+  </div>
+  <script type="module">
+    import('./game.js?v=02').catch((error) => {
+      console.error(error);
+      document.querySelector('#status').textContent = 'Ошибка запуска. Открой проект через HTTP и проверь доступ к WebGL 2.';
+    });
+  </script>
+</body>
+</html>

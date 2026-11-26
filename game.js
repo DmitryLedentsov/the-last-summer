@@ -1,110 +1,646 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-const run = async function run(THREE,FBXLoader,RGBELoader){
-  const $=s=>document.querySelector(s), status=$('#status'), menu=$('#menu'), start=$('#start'), hint=$('#hint'), dot=$('#dot');
-  const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,180);
-  const renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1)*.8);
-  renderer.setSize(innerWidth,innerHeight); renderer.outputColorSpace=THREE.SRGBColorSpace;
-  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.08;
-  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  document.body.prepend(renderer.domElement);
-  scene.fog=new THREE.FogExp2(0xb8c6c6,.0135);
-  const ambient=new THREE.HemisphereLight(0xd6e3f3,0x7b7853,2.0);scene.add(ambient);
-  const sun=new THREE.DirectionalLight(0xffe3b5,2.15);sun.position.set(-33,43,19);sun.castShadow=true;
-  Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:125});
-  sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.00025;sun.shadow.normalBias=.035;scene.add(sun);
-  let seed=3317;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-  const asset=p=>new URL('./assets/'+p,import.meta.url).href;
-  const canvasTexture=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;};
-  const sky=canvasTexture(1024,512,(c,w,h)=>{const g=c.createLinearGradient(0,0,0,h);g.addColorStop(0,'#678ab0');g.addColorStop(.46,'#c6d4d3');g.addColorStop(.58,'#d0d7ce');g.addColorStop(1,'#919582');c.fillStyle=g;c.fillRect(0,0,w,h);for(let i=0;i<95;i++){const x=rnd()*w,y=45+rnd()*170,r=15+rnd()*75;const a=c.createRadialGradient(x,y,0,x,y,r);a.addColorStop(0,'rgba(245,242,225,.26)');a.addColorStop(1,'rgba(245,242,225,0)');c.fillStyle=a;c.fillRect(x-r,y-r,r*2,r*2);}});
-  sky.mapping=THREE.EquirectangularReflectionMapping;scene.background=sky;
-  let pack=false;try{const r=await fetch(asset('manifest.json'));pack=r.ok&&((await r.json()).version===1);}catch{}
-  const manager=new THREE.LoadingManager();
-  manager.setURLModifier(url=>{if(url.startsWith('blob:')||url.startsWith('data:'))return url;const name=url.split(/[\\/]/).pop();if(/^[1-6]h\.png$/i.test(name))return asset('houses/'+name);return url;});
-  const fbx=new FBXLoader(manager),textures=new THREE.TextureLoader(manager);
-  const load=async(path,loader)=>{if(!pack)return null;try{return await loader.loadAsync(asset(path));}catch(e){console.warn('Asset fallback:',path,e);return null;}};
-  const tune=t=>{t.colorSpace=THREE.SRGBColorSpace;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestMipmapLinearFilter;return t;};
-  const mat=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:1,...extra});
-  const concrete=mat(0xaaa394),metal=mat(0x567368),rust=mat(0x855548),wood=mat(0x887c54),rubber=mat(0x393b32);
-  const colliders=[],interactions=[];
-  const box=(w,h,d,m,x,y,z,parent=scene,shadow=true)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=shadow;o.receiveShadow=true;parent.add(o);return o;};
-  const pipe=(a,b,r,m,parent=scene)=>{const v=new THREE.Vector3(...b).sub(new THREE.Vector3(...a));const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,v.length(),7),m);o.position.copy(new THREE.Vector3(...a).addScaledVector(v,.5));o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());o.castShadow=true;parent.add(o);return o;};
-  const bounds=o=>{o.updateMatrixWorld(true);return new THREE.Box3().setFromObject(o);};
-  const solid=o=>{const b=bounds(o);colliders.push({x0:b.min.x,x1:b.max.x,z0:b.min.z,z1:b.max.z});};
-  const patch=(w,d,x,z,m,y=.012)=>{const o=new THREE.Mesh(new THREE.PlaneGeometry(w,d),m);o.rotation.x=-Math.PI/2;o.position.set(x,y,z);o.receiveShadow=true;scene.add(o);return o;};
-  const noiseTex=(color,range)=>canvasTexture(128,128,(c,w,h)=>{const a=c.createImageData(w,h);for(let i=0;i<w*h;i++){const n=(rnd()-.5)*range;for(let j=0;j<3;j++)a.data[i*4+j]=color[j]+n;a.data[i*4+3]=255;}c.putImageData(a,0,0);});
-  const tile=(t,x,y)=>{tune(t);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(x,y);return t;};
-  const [grass,gravel,dirt,hdr,forest,nature,...houses]=await Promise.all([
-    load('ground/PSX_Seamless_ShortForestGrass_128px.png',textures),load('ground/PSX_Seamless_ForestGravel_Ground_128px.png',textures),load('ground/PSX_Seamless_ForestEarthGround_128px.png',textures),
-    load('sky/DAYSKY.hdr',new RGBELoader()),load('forest/forest.fbx',fbx),load('nature/nature.fbx',fbx),
-    ...[3,5,6,7].map(n=>load('houses/house0'+n+'.fbx',fbx))
-  ]);
-  if(hdr){hdr.mapping=THREE.EquirectangularReflectionMapping;scene.background=hdr;scene.backgroundIntensity=.85;}
-  patch(180,180,0,0,mat(0xa4a68d,{map:tile(grass||noiseTex([110,126,80],52),90,90)}),0);
-  const roadTex=gravel||noiseTex([139,137,123],37);
-  const road=(w,d,x,z)=>patch(w,d,x,z,mat(0xb8b2a0,{map:tile(roadTex.clone(),w/2,d/2)}));
-  road(5,71,0,0);road(70,5,0,-9);road(62,3.5,0,25);
-  patch(15,12,10,4,mat(0xbcb298,{map:tile(dirt||noiseTex([139,120,91],42),8,6)}),.022);
-  const prepare=(o,foliage=false)=>{o.traverse(n=>{if(!n.isMesh)return;n.castShadow=true;n.receiveShadow=true;for(const m of Array.isArray(n.material)?n.material:[n.material]){if(!m)continue;if(m.map)tune(m.map);m.opacity=1;m.transparent=false;if(foliage&&/crown|corwn|grass|dandelion|leaf|bush|lavender|reed/i.test(m.name+' '+n.name)){m.side=THREE.DoubleSide;m.alphaMap=null;m.alphaTest=.45;}else{m.alphaTest=0;}if(m.specular)m.specular.setScalar(.05);m.needsUpdate=true;}});return o;};
-  const normalized=(obj,height)=>{const wrapper=new THREE.Group(),inner=new THREE.Group();inner.add(obj);wrapper.add(inner);const b=bounds(obj),s=height/Math.max(.001,b.max.y-b.min.y);inner.scale.setScalar(s);inner.position.set(-(b.min.x+b.max.x)*s/2,-b.min.y*s,-(b.min.z+b.max.z)*s/2);return wrapper;};
-  const facade=canvasTexture(128,128,(c,w,h)=>{c.fillStyle='#a5a298';c.fillRect(0,0,w,h);for(let i=0;i<1600;i++){c.fillStyle=rnd()<.5?'#88877c22':'#e1d4ba25';c.fillRect(rnd()*w,rnd()*h,2+rnd()*3,1+rnd()*3);}c.strokeStyle='#777971';c.strokeRect(1,1,126,126);for(let x=17;x<116;x+=53){c.fillStyle='#d2c9b8';c.fillRect(x,17,38,74);c.fillStyle='#424f52';c.fillRect(x+4,21,30,65);c.fillStyle='#9ba4a0';c.fillRect(x+18,21,2,65);c.fillStyle='#888e86';c.fillRect(x+4,50,30,2);c.fillStyle='#716c61';c.fillRect(x-2,91,42,5);}});
-  function fallbackHouse(w,h,d){const g=new THREE.Group();const wall=mat(0xc4beb0,{map:tile(facade.clone(),Math.max(1,Math.round(w/5)),Math.max(1,Math.round(h/3)))}),side=mat(0xbcb8a9,{map:tile(facade.clone(),Math.max(1,Math.round(d/5)),Math.max(1,Math.round(h/3)))});box(w,h,d,[side,side,concrete,concrete,wall,wall],0,h/2,0,g);box(w+.4,.3,d+.4,concrete,0,h,0,g);box(2.2,2.6,.12,metal,0,1.3,d/2+.08,g);return g;}
-  const buildings=[[-27,-12,27,.15,26,23],[0,-34,13,0,17,10],[28,-13,27,-.08,17,15],[-29,29,15,0,25,12]];
-  const houseOrder=[houses[1],houses[0],houses[2],houses[3]];
-  buildings.forEach(([x,z,h,rot,w,d],i)=>{const o=houseOrder[i]?normalized(prepare(houseOrder[i]),h):fallbackHouse(w,h,d);o.rotation.y=rot;o.position.set(x,0,z);scene.add(o);solid(o);});
-  const isolated=(collection,name,height)=>{if(!collection)return null;collection.updateMatrixWorld(true);let found;collection.traverse(n=>{if(n.isMesh&&n.name.trim()===name)found=n;});if(!found)return null;const clone=found.clone();found.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);return normalized(prepare(clone,true),height);};
-  const treeTemplates=[1,2,3,4].map(i=>isolated(forest,'PSX_Tree'+i,8));
-  const grassTemplate=isolated(forest,'PSX_Grass',.55),flowerTemplate=isolated(forest,'PSX_Dandelion',.36),rockTemplate=isolated(forest,'PSX_Rock',.65);
-  const bushTemplate=isolated(nature,'Bush',1.25);
-  function fallbackTree(){const g=new THREE.Group();pipe([0,0,0],[.12,6,0],.19,wood,g);for(let i=0;i<5;i++){const o=new THREE.Mesh(new THREE.IcosahedronGeometry(1,1),mat([0x607b48,0x768b51,0x506b42][i%3]));o.position.set((rnd()-.5)*2,4.2+rnd()*2.5,(rnd()-.5)*2);o.scale.set(1.5,1.8,1.5);g.add(o);}return g;}
-  for(let i=0;i<4;i++)if(!treeTemplates[i])treeTemplates[i]=fallbackTree();
-  const clear=(x,z,r)=>!colliders.some(b=>x+r>b.x0&&x-r<b.x1&&z+r>b.z0&&z-r<b.z1);
-  const onPath=(x,z)=>Math.abs(x)<3.8||Math.abs(z+9)<3.4||Math.abs(z-25)<2.6||(x>1&&x<19&&z>-3&&z<11);
-  const place=(template,x,z,s=1,rot=0)=>{const o=template.clone(true);o.position.set(x,0,z);o.scale.setScalar(s);o.rotation.y=rot;scene.add(o);return o;};
-  const treeAt=(x,z,s,i)=>{if(!clear(x,z,1.2)||onPath(x,z))return;place(treeTemplates[i%4],x,z,s,rnd()*Math.PI*2);colliders.push({x0:x-.32*s,x1:x+.32*s,z0:z-.32*s,z1:z+.32*s});};
-  [[-8,12],[6,16],[-9,-2],[17,-1],[-15,18],[23,20],[-12,-23],[13,-22],[9,30],[-5,32]].forEach(([x,z],i)=>treeAt(x,z,.9+rnd()*.4,i));
-  for(let i=0;i<125;i++){const edge=i%4;let x=(rnd()-.5)*100,z=(rnd()-.5)*100;if(edge===0)x=-44-rnd()*13;if(edge===1)x=44+rnd()*13;if(edge===2)z=-44-rnd()*13;if(edge===3)z=44+rnd()*13;treeAt(x,z,.75+rnd()*.65,i);}
-  function instanceScatter(template,points){if(!template||!points.length)return;template.updateMatrixWorld(true);const tmp=new THREE.Object3D();template.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld);const mesh=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{tmp.position.set(x,0,z);tmp.scale.setScalar(s);tmp.rotation.set(0,a,0);tmp.updateMatrix();mesh.setMatrixAt(i,tmp.matrix);});mesh.receiveShadow=true;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();scene.add(mesh);});}
-  const scatter=[[],[],[],[]];for(let i=0;i<1000;i++){const x=(rnd()-.5)*88,z=(rnd()-.5)*88;if(!onPath(x,z)&&clear(x,z,.4))scatter[i%4].push([x,z,.6+rnd()*.8,rnd()*Math.PI*2]);}
-  instanceScatter(grassTemplate,scatter[0].concat(scatter[1]));instanceScatter(flowerTemplate,scatter[2]);instanceScatter(bushTemplate,scatter[3].slice(0,25));instanceScatter(rockTemplate,scatter[3].slice(25,48));
-  function bench(x,z,a){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=a;for(const dx of [-.82,.82]){box(.12,.48,.48,concrete,dx,.24,0,g);box(.09,.8,.09,metal,dx,.52,-.22,g);}for(let i=0;i<3;i++)box(2.1,.055,.13,wood,0,.49,-.17+i*.15,g);for(let i=0;i<2;i++)box(2.1,.13,.055,wood,0,.72+i*.15,-.27,g);scene.add(g);solid(g);interactions.push({x,z,prompt:'E — вспомнить',message:'Мы сидели здесь до самого вечера.'});}
-  bench(-4.5,7,Math.PI/2);bench(16,11,Math.PI);bench(-5,-13,0);
-  const swing=new THREE.Group();swing.position.set(10,0,3);scene.add(swing);
-  for(const x of [-1.65,1.65]){pipe([x,0,-.85],[x,2.6,0],.065,metal,swing);pipe([x,0,.85],[x,2.6,0],.065,metal,swing);}
-  pipe([-1.8,2.6,0],[1.8,2.6,0],.07,rust,swing);
-  const pivot=new THREE.Group();pivot.position.y=2.53;swing.add(pivot);for(const x of [-.35,.35])pipe([x,0,0],[x,-1.95,0],.018,metal,pivot);box(.88,.07,.29,wood,0,-1.95,0,pivot);
-  let swingKick=0;interactions.push({x:10,z:3,prompt:'E — качнуть качели',action:()=>{swingKick=.53;},message:'Тихий скрип.'});
-  for(const x of [-1.65,1.65])colliders.push({x0:10+x-.15,x1:10+x+.15,z0:2.05,z1:3.95});
-  const sand=new THREE.Group();sand.position.set(13,0,7);scene.add(sand);box(2.7,.1,2.7,mat(0xb6a17c),0,.05,0,sand);for(const z of [-1.35,1.35])box(2.9,.3,.16,rust,0,.15,z,sand);for(const x of [-1.35,1.35])box(.16,.3,2.7,metal,x,.15,0,sand);solid(sand);
-  for(const [x,z] of [[-3,19],[3,-18],[18,-5],[-17,24]]){pipe([x,0,z],[x,4.4,z],.075,metal);pipe([x,4.4,z],[x+.6,4.4,z],.045,metal);box(.45,.12,.25,concrete,x+.6,4.35,z);}
-  // First-person movement. Collision is deliberately simple for this outdoor prototype.
-  const keys=new Set(), pos=new THREE.Vector3(0,1.68,18), velocity=new THREE.Vector2();let yaw=0,pitch=0,phase=0,noticeUntil=0,notice='',locked=false;
-  camera.rotation.order='YXZ';camera.position.copy(pos);
-  function pause(){keys.clear();velocity.set(0,0);menu.hidden=false;dot.hidden=true;hint.hidden=true;start.textContent='Продолжить';}
-  document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;dot.hidden=false;}else pause();});
-  document.addEventListener('pointerlockerror',()=>{status.textContent='Браузер не разрешил захват мыши. Нажми кнопку ещё раз.';});
-  start.onclick=()=>{try{const p=renderer.domElement.requestPointerLock();if(p?.catch)p.catch(()=>{status.textContent='Не удалось захватить мышь.';});}catch{status.textContent='Захват мыши недоступен.';}};
-  document.addEventListener('mousemove',e=>{if(!locked)return;yaw-=e.movementX*.0021;pitch=THREE.MathUtils.clamp(pitch-e.movementY*.0021,-1.48,1.48);});
-  const near=()=>interactions.find(v=>Math.hypot(v.x-pos.x,v.z-pos.z)<2.6);
-  document.addEventListener('keydown',e=>{if(!locked)return;keys.add(e.code);if(['KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyE'&&!e.repeat){const v=near();if(v){v.action?.();notice=v.message;noticeUntil=performance.now()+3500;}}});
-  document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();velocity.set(0,0);if(locked)document.exitPointerLock();});
-  const canWalk=(x,z)=>Math.abs(x)<43&&Math.abs(z)<43&&clear(x,z,.32);
-  window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-  const loaded=[...houseOrder,forest,grass,gravel,hdr].filter(Boolean).length;
-  status.textContent=pack?'Локация 01 / загружено ключевых ассетов: '+loaded+'/8':'Локация 01 / резервные модели. Для оригинальных ассетов распакуй пакет в корень проекта.';
-  start.disabled=false;
-  let last=performance.now();
-  renderer.setAnimationLoop(now=>{const dt=Math.min(.05,(now-last)/1000);last=now;
-    if(locked){let f=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),r=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));const l=Math.hypot(f,r)||1;f/=l;r/=l;const speed=keys.has('ShiftLeft')||keys.has('ShiftRight')?4.8:2.65;
-      const vx=(-Math.sin(yaw)*f+Math.cos(yaw)*r)*speed,vz=(-Math.cos(yaw)*f-Math.sin(yaw)*r)*speed;
-      velocity.lerp(new THREE.Vector2(vx,vz),1-Math.exp(-12*dt));const dx=velocity.x*dt,dz=velocity.y*dt;
-      if(canWalk(pos.x+dx,pos.z))pos.x+=dx;else velocity.x=0;if(canWalk(pos.x,pos.z+dz))pos.z+=dz;else velocity.y=0;
-      phase+=velocity.length()*dt*3.2;camera.position.set(pos.x,1.68+Math.sin(phase)*Math.min(.025,velocity.length()*.007),pos.z);camera.rotation.set(pitch,yaw,0);
-      const v=near();hint.hidden=now>=noticeUntil&&!v;hint.textContent=now<noticeUntil?notice:(v?.prompt||'');
-    }
-    swingKick*=Math.exp(-dt*.35);pivot.rotation.x=Math.sin(now*.0021)*(.025+swingKick);renderer.render(scene,camera);
-  });
+
+const $ = (s) => document.querySelector(s);
+const statusEl = $('#status');
+const menuEl = $('#menu');
+const startEl = $('#start');
+const hintEl = $('#hint');
+const dotEl = $('#dot');
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x172932, 0.022);
+
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 220);
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1) * 0.85);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.domElement.style.display = 'block';
+document.body.prepend(renderer.domElement);
+
+const clock = new THREE.Clock();
+const loading = new THREE.LoadingManager();
+loading.setURLModifier(url => {
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+  const basename = url.split(/[\\/]/).pop();
+  if (/^[1-6]h\.png$/i.test(basename)) return './assets/curated/houses/' + basename;
+  return url;
+});
+const texLoader = new THREE.TextureLoader(loading);
+const fbxLoader = new FBXLoader(loading);
+const hdrLoader = new RGBELoader(loading);
+const colliders = [];
+const interactions = [];
+
+let pointerLocked = false;
+let messageUntil = 0;
+let currentMessage = '';
+let swingTime = 0;
+let swingKick = 0;
+
+const keys = new Set();
+const player = {
+  pos: new THREE.Vector3(0, 1.68, 9),
+  vel: new THREE.Vector2(),
+  yaw: 0,
+  pitch: -0.05,
+  bob: 0,
 };
-await run(THREE, FBXLoader, RGBELoader);
+
+camera.rotation.order = 'YXZ';
+
+function srgb(texture) {
+  if (!texture) return texture;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestMipmapLinearFilter;
+  texture.anisotropy = 1;
+  return texture;
+}
+
+function repeatTexture(texture, rx, ry) {
+  if (!texture) return texture;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(rx, ry);
+  return texture;
+}
+
+function box(w, h, d, material, x = 0, y = 0, z = 0, parent = scene) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+function cylinder(rt, rb, h, material, x = 0, y = 0, z = 0, parent = scene, radial = 10) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, radial), material);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+function plane(w, h, material, x = 0, y = 0, z = 0, rx = -Math.PI / 2, parent = scene) {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+  mesh.position.set(x, y, z);
+  mesh.rotation.x = rx;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+function addColliderFromObject(object, padding = 0) {
+  object.updateMatrixWorld(true);
+  const box3 = new THREE.Box3().setFromObject(object);
+  colliders.push({
+    x0: box3.min.x - padding,
+    x1: box3.max.x + padding,
+    z0: box3.min.z - padding,
+    z1: box3.max.z + padding,
+  });
+}
+
+function nearInteraction() {
+  return interactions.find((i) => Math.hypot(i.x - player.pos.x, i.z - player.pos.z) < (i.radius || 2.25));
+}
+
+function pauseGame() {
+  keys.clear();
+  player.vel.set(0, 0);
+  menuEl.hidden = false;
+  dotEl.hidden = true;
+  hintEl.hidden = true;
+  startEl.textContent = 'Продолжить';
+}
+
+function makeFallbackSky() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#020307');
+  grad.addColorStop(0.35, '#052a28');
+  grad.addColorStop(0.72, '#0c1716');
+  grad.addColorStop(1, '#020406');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < 260; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height * 0.7;
+    const a = 0.3 + Math.random() * 0.7;
+    const s = Math.random() < 0.9 ? 1 : 2;
+    ctx.fillStyle = `rgba(180,255,245,${a})`;
+    ctx.fillRect(x, y, s, s);
+  }
+  const t = new THREE.CanvasTexture(canvas);
+  t.mapping = THREE.EquirectangularReflectionMapping;
+  return t;
+}
+
+function createFallbackTree() {
+  const group = new THREE.Group();
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x355b63, roughness: 1 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x0fb37b, roughness: 1, side: THREE.DoubleSide });
+  cylinder(0.22, 0.26, 5.4, trunkMat, 0, 2.7, 0, group, 6);
+  for (let i = 0; i < 7; i++) {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(1.1 + Math.random() * 0.45, 1.8 + Math.random() * 0.8, 4), leafMat);
+    m.position.set((Math.random() - 0.5) * 1.2, 3.6 + Math.random() * 2.2, (Math.random() - 0.5) * 1.2);
+    m.rotation.y = Math.random() * Math.PI;
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+  }
+  return group;
+}
+
+function prepareObject(object) {
+  object.traverse((node) => {
+    if (!node.isMesh) return;
+    node.castShadow = true;
+    node.receiveShadow = true;
+    const materials = Array.isArray(node.material) ? node.material : [node.material];
+    for (const material of materials) {
+      if (!material) continue;
+      if (material.map) srgb(material.map);
+      const cutout = /crown|corwn|grass|dandelion|leaf|bush|lavender|reed|plant|skeleton/i.test(material.name + ' ' + node.name) && !/^(Tree[1-4]|Tree|Wood)$/i.test(material.name);
+      material.transparent = false;
+      material.opacity = 1;
+      if (cutout) { material.alphaTest = 0.42; material.side = THREE.DoubleSide; material.alphaMap = null; }
+      else { material.alphaTest = 0; }
+      if (material.map && material.color) material.color.set(0xffffff);
+      if (material.specular) material.specular.setScalar(0.035);
+      material.needsUpdate = true;
+    }
+  });
+  return object;
+}
+
+function normalize(object, targetHeight = 3) {
+  const wrapper = new THREE.Group();
+  const root = new THREE.Group();
+  root.add(object);
+  wrapper.add(root);
+  const box3 = new THREE.Box3().setFromObject(object);
+  const size = new THREE.Vector3();
+  box3.getSize(size);
+  const scale = targetHeight / Math.max(size.y, 0.001);
+  root.scale.setScalar(scale);
+  root.position.set(
+    -(box3.min.x + box3.max.x) * 0.5 * scale,
+    -box3.min.y * scale,
+    -(box3.min.z + box3.max.z) * 0.5 * scale,
+  );
+  return wrapper;
+}
+
+function place(object, x, z, y = 0, rot = 0, scale = 1, parent = scene) {
+  object.position.set(x, y, z);
+  object.rotation.y = rot;
+  object.scale.multiplyScalar(scale);
+  parent.add(object);
+  return object;
+}
+
+function cloneNamed(collection, patterns) {
+  if (!collection) return null;
+  const names = Array.isArray(patterns) ? patterns : [patterns];
+  let found = null;
+  collection.traverse((node) => {
+    if (found || !node.isMesh) return;
+    const n = (node.name || '').toLowerCase();
+    if (names.some((p) => n.includes(p.toLowerCase()))) {
+      found = node;
+    }
+  });
+  if (!found) return null;
+  const clone = found.clone();
+  found.updateWorldMatrix(true, false);
+  found.matrixWorld.decompose(clone.position, clone.quaternion, clone.scale);
+  return clone;
+}
+
+function makeRuneDisc(runeTexture) {
+  const group = new THREE.Group();
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.6, 1.8, 0.28, 10),
+    new THREE.MeshStandardMaterial({ color: 0x31474b, roughness: 1, metalness: 0.05 }),
+  );
+  base.castShadow = true;
+  base.receiveShadow = true;
+  group.add(base);
+
+  const glow = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.1, 3.1),
+    new THREE.MeshBasicMaterial({
+      map: runeTexture || null,
+      color: 0x79fff3,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  glow.rotation.x = -Math.PI / 2;
+  glow.position.y = 0.18;
+  group.add(glow);
+  const light = new THREE.PointLight(0x53fff3, 24, 10, 2);
+  light.position.y = 0.95;
+  group.add(light);
+  group.userData.glow = glow;
+  group.userData.light = light;
+  return group;
+}
+
+async function loadAsset(path, kind = 'fbx') {
+  try {
+    if (kind === 'fbx') return await fbxLoader.loadAsync(path);
+    if (kind === 'hdr') return await hdrLoader.loadAsync(path);
+    if (kind === 'texture') return await texLoader.loadAsync(path);
+  } catch (error) {
+    console.warn('Asset load failed:', path, error);
+  }
+  return null;
+}
+
+async function main() {
+  const assets = {
+    skyNight: './assets/curated/sky/PSX_NIGHTSKY.hdr',
+    skyDay: './assets/curated/sky/DAYSKY.hdr',
+    forest: './assets/curated/forest/forest_collection.fbx',
+    nature: './assets/curated/nature/nature_collection.fbx',
+    palast: './assets/curated/palast/palast_collection.fbx',
+    skeleton: './assets/curated/skull/PS1_Skeleton.fbx',
+    skull: './assets/curated/skull/PS1_Skull.fbx',
+    sword: './assets/curated/skull/ps1_Sword.fbx',
+    rune: './assets/curated/skull/MagicRunes_Emission.png',
+    groundGrass: './assets/curated/ground/PSX_Seamless_ShortForestGrass_128px.png',
+    groundWild: './assets/curated/ground/PSX_Seamless_WildForestGrass_128px.png',
+    groundEarth: './assets/curated/ground/PSX_Seamless_ForestEarthGround_128px.png',
+    groundClover: './assets/curated/ground/PSX_Seamless_WildForestClover_128px.png',
+    house1: './assets/curated/houses/house03.fbx',
+    house2: './assets/curated/houses/house07.fbx',
+  };
+
+  const [nightHDR, forestCollection, natureCollection, palastCollection, skeletonModel, skullModel, swordModel, runeTexture, tGrass, tWild, tEarth, tClover, houseA, houseB, wallTex, skullTex] = await Promise.all([
+    loadAsset(assets.skyNight, 'hdr'),
+    loadAsset(assets.forest, 'fbx'),
+    loadAsset(assets.nature, 'fbx'),
+    loadAsset(assets.palast, 'fbx'),
+    loadAsset(assets.skeleton, 'fbx'),
+    loadAsset(assets.skull, 'fbx'),
+    loadAsset(assets.sword, 'fbx'),
+    loadAsset(assets.rune, 'texture'),
+    loadAsset(assets.groundGrass, 'texture'),
+    loadAsset(assets.groundWild, 'texture'),
+    loadAsset(assets.groundEarth, 'texture'),
+    loadAsset(assets.groundClover, 'texture'),
+    loadAsset(assets.house1, 'fbx'),
+    loadAsset(assets.house2, 'fbx'),
+    loadAsset('./assets/curated/nature/stonewall.JPG', 'texture'),
+    loadAsset('./assets/curated/skull/ps1_skull_256x256.png', 'texture'),
+  ]);
+
+  scene.background = nightHDR ? (nightHDR.mapping = THREE.EquirectangularReflectionMapping, nightHDR) : makeFallbackSky();
+
+  scene.backgroundIntensity = 1.05;
+  const hemi = new THREE.HemisphereLight(0xa3c9df, 0x5a6550, 1.25);
+  scene.add(hemi);
+  const moon = new THREE.DirectionalLight(0xa5ccff, 1.6);
+  moon.position.set(-18, 23, 18);
+  moon.castShadow = true;
+  moon.shadow.mapSize.set(2048, 2048);
+  moon.shadow.camera.left = -25;
+  moon.shadow.camera.right = 25;
+  moon.shadow.camera.top = 25;
+  moon.shadow.camera.bottom = -25;
+  moon.shadow.camera.near = 1;
+  moon.shadow.camera.far = 90;
+  moon.shadow.bias = -0.0003;
+  scene.add(moon);
+  const tealLight = new THREE.PointLight(0x35ffd8, 85, 22, 2);
+  tealLight.position.set(-3, 3, 2);
+  scene.add(tealLight);
+
+  srgb(runeTexture);
+  srgb(tGrass); srgb(tWild); srgb(tEarth); srgb(tClover);
+  repeatTexture(tGrass, 18, 18);
+  repeatTexture(tWild, 8, 8);
+  repeatTexture(tEarth, 6, 6);
+  repeatTexture(tClover, 12, 12);
+
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0xc1cbb2, map: tGrass || null, roughness: 1 });
+  const pathMat = new THREE.MeshStandardMaterial({ color: 0xb0b4ad, map: tEarth || null, roughness: 1 });
+  const cloverMat = new THREE.MeshStandardMaterial({ color: 0xb1c7a3, map: tClover || tWild || null, roughness: 1 });
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x374346, roughness: 1, metalness: 0.03 });
+  const concreteMat = new THREE.MeshStandardMaterial({ color: 0xb8b7ad, map: srgb(wallTex) || null, roughness: 1 });
+
+  const island = box(36, 2.2, 36, stoneMat, 0, -1.1, 0);
+  island.receiveShadow = true;
+  const courtyard = plane(28, 28, groundMat, 0, 0.03, 0);
+  const path = plane(8, 15, pathMat, 0, 0.05, 6);
+  const backPath = plane(12, 6, pathMat, 0, 0.051, -7);
+  const cloverPatch = plane(10, 8, cloverMat, -7, 0.06, 3);
+  const rightPatch = plane(8, 8, cloverMat, 7, 0.06, 1);
+  void courtyard; void path; void backPath; void cloverPatch; void rightPatch;
+
+  // Separate wall colliders, never the bounding box of the entire courtyard.
+  const border = new THREE.Group(); scene.add(border);
+  for (const [w,h,d,x,z] of [[28,1.2,0.55,0,-14],[0.65,1.5,28,-14,0],[0.65,1.5,28,14,0],[28,0.6,0.65,0,14]]) {
+    addColliderFromObject(box(w,h,d,concreteMat,x,h/2,z,border));
+  }
+  // A single authentic panel building, aligned by its actual bounding box.
+  const house = houseA || houseB;
+  if (house) {
+    const obj=normalize(prepareObject(house), 13);
+    const bounds = new THREE.Box3().setFromObject(obj), size=bounds.getSize(new THREE.Vector3());
+    const fit=Math.min(1,24/Math.max(size.x,.01),7/Math.max(size.z,.01));
+    place(obj,0,-6-size.z*fit/2,0,0,fit);
+    addColliderFromObject(obj,0.1);
+  }
+
+  // Tree / forest elements.
+  const fallbackTree = createFallbackTree();
+  const treeBase = cloneNamed(forestCollection, ['psx_tree1']);
+  const treeAlt = cloneNamed(forestCollection, ['psx_tree3']) || treeBase;
+  const grassBlade = cloneNamed(forestCollection, ['psx_grass']);
+  const flower = cloneNamed(forestCollection, ['dandelion', 'flower']) || cloneNamed(forestCollection, ['grass']);
+  const rock = cloneNamed(forestCollection, ['rock']);
+  const bush = cloneNamed(natureCollection, ['bush']) || cloneNamed(natureCollection, ['ivy']);
+
+  function placeNature(source, height, x, z, scale = 1, rot = Math.random() * Math.PI * 2, collider = false) {
+    let obj = source ? normalize(prepareObject(source.clone()), height) : createFallbackTree();
+    place(obj, x, z, 0, rot, scale);
+    if (collider) colliders.push({x0:x-.38*scale,x1:x+.38*scale,z0:z-.38*scale,z1:z+.38*scale});
+    return obj;
+  }
+
+  // Main mystical tree.
+  const centralTree = placeNature(treeAlt || treeBase, 7.4, -4.5, -1.5, 1.25, 0.4, true);
+  const trunkGlow = new THREE.PointLight(0x19ffd7, 40, 12, 2);
+  trunkGlow.position.set(-3.4, 2.4, -0.5);
+  scene.add(trunkGlow);
+
+  const treePositions = [
+    [-9.5, 6], [-11.2, -4], [10.5, 5.5], [11.8, -2], [7.5, 10.5], [-7.5, 10.8], [-10.8, 11], [10.2, 10.4]
+  ];
+  treePositions.forEach(([x, z], i) => placeNature((i % 2 ? treeAlt : treeBase) || null, 6 + (i % 3) * 0.6, x, z, 0.95 + (i % 4) * 0.03, i * 0.8, true));
+
+  let seed=8401;
+  function rand(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
+  function scatterClones(source, count, areaMin, areaMax, height, y = 0) {
+    if (!source) return;
+    const template=normalize(prepareObject(source.clone()),height);
+    template.updateMatrixWorld(true);
+    const points=[];
+    for(let i=0;i<count;i++){
+      const x=areaMin+rand()*(areaMax-areaMin), z=areaMin+rand()*(areaMax-areaMin);
+      if(z < -5.6 || Math.abs(x)<1.8 && z>1.8 || Math.hypot(x,z)<2.5 || !walkable(x,z)) continue;
+      points.push([x,z,.65+rand()*.85,rand()*Math.PI*2]);
+    }
+    if(!points.length)return;
+    const dummy=new THREE.Object3D();
+    template.traverse(n=>{if(!n.isMesh)return;
+      const geometry=n.geometry.clone().applyMatrix4(n.matrixWorld);
+      const mesh=new THREE.InstancedMesh(geometry,n.material,points.length);
+      points.forEach(([x,z,scale,angle],i)=>{dummy.position.set(x,y,z);dummy.scale.setScalar(scale);dummy.rotation.set(0,angle,0);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);});
+      mesh.instanceMatrix.needsUpdate=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();scene.add(mesh);
+    });
+  }
+
+  // Central altar with rune disc.
+  const altar = new THREE.Group();
+  scene.add(altar);
+  box(3.5, 0.7, 3.5, concreteMat, 0, 0.35, 0, altar);
+  box(2.4, 0.45, 2.4, concreteMat, 0, 0.95, 0, altar);
+  const runeDisc = makeRuneDisc(runeTexture);
+  runeDisc.position.set(0, 1.16, 0);
+  altar.add(runeDisc);
+  addColliderFromObject(altar, 0.05);
+  interactions.push({ x: 0, z: 0, radius: 3.2, prompt: 'E — прислушаться к рунам', message: 'Руны пульсируют, как далёкий радиосигнал.' });
+
+  // Sword.
+  let swordObj = swordModel ? normalize(prepareObject(swordModel), 2.7) : null;
+  if (!swordObj) {
+    swordObj = new THREE.Group();
+    cylinder(0.03, 0.03, 2.2, new THREE.MeshStandardMaterial({ color: 0x7de0ff, metalness: 0.8, roughness: 0.25 }), 0, 1.1, 0, swordObj, 6);
+    box(0.6, 0.08, 0.08, new THREE.MeshStandardMaterial({ color: 0x7de0ff, metalness: 0.8, roughness: 0.25 }), 0, 0.6, 0, swordObj);
+  }
+  place(swordObj, -3.7, 2.2, 0.2, 0.15, 1);
+  interactions.push({ x: -3.7, z: 2.2, prompt: 'E — прикоснуться к мечу', message: 'Металл ледяной, будто лежал здесь вечность.' });
+
+  // Skull on stone.
+  const skullPedestal = new THREE.Group();
+  scene.add(skullPedestal);
+  box(1.1, 1.1, 1.1, concreteMat, 0, 0.55, 0, skullPedestal);
+  const skullObj = skullModel ? normalize(prepareObject(skullModel), 0.9) : null;
+  if (skullObj) { skullObj.traverse(n=>{if(n.isMesh&&skullTex){for(const m of Array.isArray(n.material)?n.material:[n.material]){m.map=srgb(skullTex);m.color?.set(0xffffff);m.needsUpdate=true;}}}); skullPedestal.add(skullObj); skullObj.position.y=1.14; }
+  else box(0.55, 0.42, 0.68, new THREE.MeshStandardMaterial({ color: 0xc7c1a8, roughness: 1 }), 0, 1.18, 0, skullPedestal);
+  place(skullPedestal, 4.8, 2.7, 0, -0.3, 1);
+  interactions.push({ x: 4.8, z: 2.7, prompt: 'E — посмотреть на череп', message: 'Пустые глазницы будто следят за каждым движением.' });
+  addColliderFromObject(skullPedestal, 0.05);
+
+  // Skeleton watcher.
+  let skeletonObj = skeletonModel ? normalize(prepareObject(skeletonModel), 1.95) : null;
+  if (!skeletonObj) {
+    skeletonObj = new THREE.Group();
+    cylinder(0.08, 0.08, 2.2, new THREE.MeshStandardMaterial({ color: 0xe4a872, roughness: 1 }), 0, 1.1, 0, skeletonObj, 6);
+  }
+  place(skeletonObj, 6.5, -1.8, 0, -2.4, 1);
+  interactions.push({ x: 6.5, z: -1.8, prompt: 'E — посмотреть на сторожа', message: 'Он молчит. Кажется, он просто ждёт.' });
+  addColliderFromObject(skeletonObj, 0.12);
+  const watcherLight=new THREE.PointLight(0xff8740,65,13,2); watcherLight.position.set(5.2,2.8,0);scene.add(watcherLight);
+
+  // Individual meshes, not the entire asset showcase.
+  for(const [name,height,x,z,rot] of [['obelisk',3.4,8,4,-0.3],['shrine',2.2,-8,2,0.15],['AngelWall',3.1,10,-4,-0.6],['Devilsface',1.6,-10,-3,0.5]]){
+    const source=cloneNamed(palastCollection,[name]);
+    if(!source)continue;
+    const obj=normalize(prepareObject(source),height);place(obj,x,z,0,rot);addColliderFromObject(obj,.08);
+    interactions.push({x,z,radius:2.6,prompt:'E — осмотреть',message:'Этого здесь не было.'});
+  }
+  scatterClones(grassBlade, 1750, -12.8, 12.8, 0.48, 0.045);
+  scatterClones(flower, 190, -12, 12, 0.3, 0.045);
+  scatterClones(bush, 65, -12, 12, 0.85, 0.045);
+  scatterClones(rock, 28, -12, 12, 0.42, 0.045);
+  scatterClones(cloneNamed(natureCollection,['plant']), 150, -12,12,.65,.045);
+
+  // A strange courtyard lamp.
+  const lamp = new THREE.Group();
+  scene.add(lamp);
+  cylinder(0.07, 0.08, 3.6, concreteMat, 0, 1.8, 0, lamp, 6);
+  box(0.38, 0.38, 0.38, new THREE.MeshStandardMaterial({ color: 0x8df2ff, emissive: 0x42c9de, emissiveIntensity: 0.65 }), 0, 3.75, 0, lamp);
+  const lampLight = new THREE.PointLight(0x58f4ff, 50, 14, 2);
+  lampLight.position.set(0, 3.75, 0);
+  lamp.add(lampLight);
+  place(lamp, -7.8, 7.8, 0, 0, 1);
+
+  // Familiar courtyard details against the impossible scene.
+  const benchMat=new THREE.MeshStandardMaterial({color:0x988061,roughness:1});
+  const iron=new THREE.MeshStandardMaterial({color:0x56766e,roughness:1});
+  for(const [x,z,a] of [[-5.4,6.5,.4],[5.4,7.3,-.7]]){
+    const b=new THREE.Group();place(b,x,z,0,a);
+    for(const dx of [-.85,.85]){box(.12,.5,.5,iron,dx,.25,0,b);box(.08,.85,.08,iron,dx,.47,-.22,b);}
+    for(let i=0;i<3;i++)box(2.1,.06,.15,benchMat,0,.52,-.18+i*.17,b);
+    for(let i=0;i<2;i++)box(2.1,.15,.06,benchMat,0,.75+i*.17,-.23,b);
+    addColliderFromObject(b,.04);
+  }
+  const warm=new THREE.PointLight(0xffad63,55,15,2);warm.position.set(2,3,-4.8);scene.add(warm);
+  const lampFace=new THREE.MeshBasicMaterial({color:0xffb56d});box(.35,.24,.12,lampFace,2,3,-5.75);
+
+  // Void particles / fireflies.
+  const particleCount = 220;
+  const positions = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+  for (let i = 0; i < particleCount; i++) {
+    const radius = 5 + Math.random() * 18;
+    const angle = Math.random() * Math.PI * 2;
+    positions[i * 3 + 0] = Math.cos(angle) * radius;
+    positions[i * 3 + 1] = Math.random() * 12 + 0.7;
+    positions[i * 3 + 2] = Math.sin(angle) * radius;
+    const t = Math.random();
+    colors[i * 3 + 0] = 0.2 + t * 0.25;
+    colors[i * 3 + 1] = 0.65 + t * 0.35;
+    colors[i * 3 + 2] = 0.6 + t * 0.4;
+  }
+  const particleGeo = new THREE.BufferGeometry();
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const particleMat = new THREE.PointsMaterial({ size: 0.08, transparent: true, opacity: 0.95, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const particles = new THREE.Points(particleGeo, particleMat);
+  scene.add(particles);
+
+  // Validate spawn against every individual collider before enabling controls.
+  if(!walkable(player.pos.x,player.pos.z)){
+    let found=false;
+    for(let z=10;z>=2&&!found;z-=.5)for(let x=-2;x<=2;x+=.5)if(walkable(x,z)){player.pos.set(x,1.68,z);found=true;break;}
+    if(!found)throw new Error('No valid spawn in courtyard');
+  }
+  camera.position.copy(player.pos);camera.rotation.set(player.pitch,player.yaw,0);
+  // Interaction status.
+  const count=[nightHDR,forestCollection,natureCollection,palastCollection,skeletonModel,skullModel,swordModel,houseA].filter(Boolean).length;
+  statusEl.textContent = `Готово · основные ресурсы ${count}/8`; 
+  startEl.disabled = false;
+
+  function walkable(x, z) {
+    if (x < -12.8 || x > 12.8 || z < -12.8 || z > 12.8) return false;
+    for (const c of colliders) {
+      if (x + .25 > c.x0 && x - .25 < c.x1 && z + .25 > c.z0 && z - .25 < c.z1) return false;
+    }
+    return true;
+  }
+
+  document.addEventListener('pointerlockchange', () => {
+    pointerLocked = document.pointerLockElement === renderer.domElement;
+    if (pointerLocked) {
+      menuEl.hidden = true;
+      dotEl.hidden = false;
+    } else {
+      pauseGame();
+    }
+  });
+
+  startEl.addEventListener('click', async () => {
+    try {
+      await renderer.domElement.requestPointerLock();
+    } catch (error) {
+      console.warn(error);
+      statusEl.textContent = 'Браузер не дал захватить мышь.';
+    }
+  });
+
+  document.addEventListener('mousemove', (event) => {
+    if (!pointerLocked) return;
+    player.yaw -= event.movementX * 0.00215;
+    player.pitch = THREE.MathUtils.clamp(player.pitch - event.movementY * 0.00215, -1.45, 1.45);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (!pointerLocked) return;
+    keys.add(event.code);
+    if (event.code === 'KeyE' && !event.repeat) {
+      const hit = nearInteraction();
+      if (hit) {
+        currentMessage = hit.message;
+        messageUntil = performance.now() + 3200;
+      }
+    }
+  });
+  document.addEventListener('keyup', (event) => keys.delete(event.code));
+  window.addEventListener('blur', () => { keys.clear(); player.vel.set(0, 0); if(pointerLocked)document.exitPointerLock(); });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const now = performance.now();
+
+    if (pointerLocked) {
+      const forward = Number(keys.has('KeyW')) - Number(keys.has('KeyS'));
+      const right = Number(keys.has('KeyD')) - Number(keys.has('KeyA'));
+      const len = Math.hypot(forward, right) || 1;
+      const f = forward / len;
+      const r = right / len;
+      const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 4.6 : 2.6;
+      const vx = (-Math.sin(player.yaw) * f + Math.cos(player.yaw) * r) * speed;
+      const vz = (-Math.cos(player.yaw) * f - Math.sin(player.yaw) * r) * speed;
+      player.vel.lerp(new THREE.Vector2(vx, vz), 1 - Math.exp(-10 * dt));
+      const nx = player.pos.x + player.vel.x * dt;
+      const nz = player.pos.z + player.vel.y * dt;
+      if (walkable(nx, player.pos.z)) player.pos.x = nx; else player.vel.x = 0;
+      if (walkable(player.pos.x, nz)) player.pos.z = nz; else player.vel.y = 0;
+
+      player.bob += player.vel.length() * dt * 3.4;
+      camera.position.set(player.pos.x, 1.68 + Math.sin(player.bob) * Math.min(0.03, player.vel.length() * 0.008), player.pos.z);
+      camera.rotation.set(player.pitch, player.yaw, 0);
+
+      const focus = nearInteraction();
+      if (now < messageUntil) {
+        hintEl.hidden = false;
+        hintEl.textContent = currentMessage;
+      } else if (focus) {
+        hintEl.hidden = false;
+        hintEl.textContent = focus.prompt;
+      } else {
+        hintEl.hidden = true;
+      }
+    }
+
+    swingTime += dt;
+    swingKick *= Math.exp(-dt * 0.7);
+    runeDisc.userData.glow.rotation.z += dt * 0.33;
+    runeDisc.userData.glow.material.opacity = 0.55 + Math.sin(swingTime * 2.0) * 0.18;
+    runeDisc.userData.light.intensity = 24 + Math.sin(swingTime * 2.7) * 5;
+    trunkGlow.intensity = 40 + Math.sin(swingTime * 1.8) * 6;
+    particles.rotation.y += dt * 0.015;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.code === 'Escape' && pointerLocked) {
+    document.exitPointerLock();
+  }
+});
+
+main().catch((error) => {
+  console.error(error);
+  statusEl.textContent = 'Ошибка подготовки сцены. См. консоль.';
+});
