@@ -69,5 +69,5 @@ export function createPipeline(T,renderer,scene,camera){
   if(cfg.aa){if(!smaa)smaa=new SMAAPass(w,h);if(smaa.areaTexture.image?.complete&&smaa.searchTexture.image?.complete&&smaa.areaTexture.image.naturalWidth&&smaa.searchTexture.image.naturalWidth){smaa.render(renderer,aaTarget,src);src=aaTarget;}}
   output.render(renderer,null,src);
  }
- return {render,dispose};
+ return {render,dispose,supported:hdr};
 }

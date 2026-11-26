@@ -1,7 +1,7 @@
-import {createSceneStyles} from './scene_style.js?v=050';
-import {createPipeline} from './graphics_pipeline.js?v=050';
-import {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=050';
-export {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=050';
+import {createSceneStyles} from './scene_style.js?v=051';
+import {createPipeline} from './graphics_pipeline.js?v=051';
+import {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=051';
+export {STYLES,QUALITIES,graphicsSettings,collectTextures,createTextureProfiles} from './graphics_settings.js?v=051';
 export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],onChange=()=>{}}){
  let style=0,quality=2,postFailed=false,appliedStyle=-1;
  const query=new URLSearchParams(location.search);
@@ -16,9 +16,9 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
   const ratio=Math.min(globalThis.devicePixelRatio||1,cfg.s.retro?1:cfg.q.dpr)*cfg.scale;
   renderer.setPixelRatio(ratio);renderer.setSize(innerWidth,innerHeight);
  }
- function label(){return STYLES[style].name+' / '+QUALITIES[quality].name+(postFailed&&!STYLES[style].retro?' · FX OFF':'');}
+ function label(){return STYLES[style].name+' / '+QUALITIES[quality].name+(postFailed&&!STYLES[style].retro&&quality>0?' · FX OFF':'');}
  function apply(){
-  const cfg=graphicsSettings(style,quality);postFailed=false;pipeline.dispose();
+  const cfg=graphicsSettings(style,quality);postFailed=!pipeline.supported;pipeline.dispose();
   if(appliedStyle!==style){looks.apply(cfg.s.name);appliedStyle=style;}renderer.domElement.style.imageRendering=cfg.s.retro?'pixelated':'auto';
   applyTextures(cfg.s.retro,cfg.q.anisotropy);
   const shadow=Math.min(cfg.q.shadow,renderer.capabilities.maxTextureSize);
