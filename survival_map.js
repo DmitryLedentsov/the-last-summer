@@ -1,7 +1,7 @@
-import {startSurvival} from './survival_combat.js?v=057';
+import {startSurvival} from './survival_combat.js?v=058';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
-import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
+import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=058';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {levels,pathWeight,pond,pondDistance,houseSite} from './alive_levels.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
@@ -127,8 +127,8 @@ if(sunset){
 }
 // Plant distribution follows clearings, wet shores, woods and worn tracks rather than uniform noise.
 const trees=['PSX_Tree1','PSX_Tree2','PSX_Tree3','PSX_Tree4'].map(n=>template(forest,n,8));
-const treePoints=trees.map(()=>[]),treeCenters=[],treeFeet=trees.map(t=>trunkFootprint(THREE,t)),treeReplacements=[];
-function plantTree(x,z,i,s,forced=false){if(!trees[i]||level.reserved(x,z)||level.distance(x,z)<2.8||!free(x,z,1.1)||Math.hypot(x-level.spawn[0],z-level.spawn[1])<3.8||treeCenters.some(p=>Math.hypot(x-p[0],z-p[1])<2.5))return false;const a=rnd()*Math.PI*2;treePoints[i].push([x,z,s,a]);treeCenters.push([x,z]);treeReplacements.push([colliders.length,treeCollider(treeFeet[i],x,z,s,a)]);trunk(x,z,.36*s);return true;}
+const treePoints=trees.map(()=>[]),treeCenters=[],treeFeet=trees.map(t=>collectWoodTriangles(THREE,t)),treeReplacements=[];
+function plantTree(x,z,i,s,forced=false){if(!trees[i]||level.reserved(x,z)||level.distance(x,z)<2.8||!free(x,z,1.1)||Math.hypot(x-level.spawn[0],z-level.spawn[1])<3.8||treeCenters.some(p=>Math.hypot(x-p[0],z-p[1])<2.5))return false;const a=rnd()*Math.PI*2;treePoints[i].push([x,z,s,a]);treeCenters.push([x,z]);treeReplacements.push([colliders.length,combatTreeCollider(treeFeet[i],x,z,s,a,height(x,z)-.025)]);trunk(x,z,.36*s);return true;}
 const framing=sunset?[[-7,38,2,.85],[5,35,0,.87],[-11,25,3,.88],[7,16,1,.9],[-15,3,2,1.03],[13,3,0,.78],[-4,-24,1,.9],[-18,-30,3,.8]]:[[-11,32,1,.87],[4,32,0,.72],[-14,16,2,.82],[2,-5,1,.85],[-17,-8,3,.81],[4,-18,0,.76],[14,-14,2,.9]];
 for(const [x,z,i,s] of framing)plantTree(x,z,i,s,true);
 for(let n=0;n<level.trees*45&&treeCenters.length<level.trees;n++){const x=(rnd()-.5)*(level.size-5),z=(rnd()-.5)*(level.size-5);if(rnd()>Math.pow(level.treeZone(x,z),1.7))continue;if(sunset&&z<18&&z>-33&&x>0&&x<27&&rnd()<.85)continue;if(!sunset&&z>-31&&z<-14&&x>-16&&x<18&&rnd()<.85)continue;const i=Math.floor(rnd()*trees.length);plantTree(x,z,i,.7+rnd()*.8);}
@@ -153,6 +153,12 @@ function plantChance(key,x,z){const d=level.distance(x,z),edge=Math.exp(-((d-2.5
 for(const [key,collection,name,h,count,min,max] of plantSpecs){const t=template(collection,name,h),points=[];if(!t)continue;for(let n=0;n<count*16&&points.length<count;n++){let x,z;if(rnd()<.74){const [cx,cz,r]=clusters[key][Math.floor(rnd()*clusters[key].length)],a=rnd()*Math.PI*2,d=Math.sqrt(rnd())*r;x=cx+Math.cos(a)*d;z=cz+Math.sin(a)*d;}else{x=(rnd()-.5)*(level.size-5);z=(rnd()-.5)*(level.size-5);}if(Math.abs(x)>level.size/2-1||Math.abs(z)>level.size/2-1||level.distance(x,z)<.72||level.road(x,z)<(sunset?2.0:1.6)||!free(x,z,key==='bush'?.6:.08))continue;if(sunset&&Math.abs(x-houseSite.x)<22.2&&Math.abs(z-houseSite.z)<12.5)continue;if(!sunset&&((x>6.4&&x<15.5&&Math.abs(z-10)<1.15)||pondDistance(x,z)<(key==='reed'?.94:.99)||(x>-27.5&&x<-13.5&&z>-24.3&&z<-19.8)))continue;if(rnd()>plantChance(key,x,z))continue;const s=min+(max-min)*rnd()**1.7;points.push([x,z,s,rnd()*Math.PI*2]);if(key==='bush'||key==='stump')trunk(x,z,.28*s);}
  batch(t,points,['bush','rock','stone','stump'].includes(key));}
 for(const [index,shape] of treeReplacements)colliders[index]=shape;
+// Optional movement-collider overlay for checking the exact trunk footprint.
+if(new URLSearchParams(location.search).get('colliders')==='1'){
+ const lines=[];for(const [,shape] of treeReplacements){if(!shape.poly)continue;for(let i=0;i<shape.poly.length;i++){
+  const a=shape.poly[i],b=shape.poly[(i+1)%shape.poly.length];lines.push(a[0],height(a[0],a[1])+.065,a[1],b[0],height(b[0],b[1])+.065,b[1]);
+ }}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));scene.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0xffae35,depthTest:false,transparent:true,opacity:.85})));}
+
 if(sunset)addMeadowFlowers(THREE,scene,level,height,free);
 // Batch repeated hand-built props (rails, fences, dock planks, wires) by material.
 // Preserve world transforms, shadows and already-recorded collision bounds.

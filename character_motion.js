@@ -33,3 +33,13 @@ export function createPoseLayer(bones){
  return {restore(){unique.forEach((b,i)=>b.quaternion.copy(base[i]));},
   capture(){unique.forEach((b,i)=>base[i].copy(b.quaternion));}};
 }
+
+export function locomotionMode(speed,stance,blocked=false){
+ if(blocked||speed<=.10)return 'idle';
+ if(stance)return 'sneak';
+ return speed>2.95?'run':'walk';
+}
+export function locomotionRate(mode,speed,backward=false){
+ const rate=mode==='run'?clamp(speed/3.8,.7,1.35):mode==='walk'?clamp(speed/1.65,.30,1.8):mode==='sneak'?clamp(speed/.85,.30,1.5):1;
+ return backward&&(mode==='walk'||mode==='sneak')?-rate:rate;
+}

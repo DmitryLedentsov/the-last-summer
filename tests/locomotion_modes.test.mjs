@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {locomotionMode,locomotionRate,analogSpeed,sprintAvailable} from '../character_motion.js';
+assert.equal(locomotionMode(4.7,false),'run');
+assert.equal(locomotionMode(2.65,false),'walk');
+assert.equal(locomotionMode(.3,false),'walk');
+assert.equal(locomotionMode(1.12,true),'sneak');
+assert.equal(locomotionMode(.3,true),'sneak');
+assert.equal(locomotionMode(0,true),'idle');
+assert.equal(locomotionMode(4.7,true,true),'idle');
+const exhausted=sprintAvailable(0,false);
+assert.equal(locomotionMode(analogSpeed(1,{canSprint:exhausted.available}),false),'walk');
+assert(locomotionRate('sneak',1.12,true)<0);
+assert(locomotionRate('walk',2.65,false)>0);
+console.log('PASS distinct walk/run/sneak states and exhausted sprint fallback');
