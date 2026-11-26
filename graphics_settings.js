@@ -1,11 +1,12 @@
 // Legacy is a frozen v0.5.2 reference; all experimental looks preserve authored assets.
+// Every Diorama uses exactly the frozen v0.5.2 renderer; variations are small optical and lighting adjustments.
 export const STYLES=Object.freeze([
  {name:'RETRO',retro:true,blur:0,bloom:0,grade:0},
  {name:'DIORAMA LEGACY',retro:false,blur:1,bloom:0,grade:0,legacy:true},
- {name:'DIORAMA MINIATURE',retro:false,blur:.42,bloom:0,grade:0,lens:1.2},
- {name:'DIORAMA CONTRAST',retro:false,blur:0,bloom:0,grade:0,contrast:.10,ao:true},
- {name:'DIORAMA DREAM',retro:false,blur:.12,bloom:.32,grade:.42},
- {name:'DIORAMA TOYBOX',retro:false,blur:.16,bloom:0,grade:0,contrast:.035}
+ {name:'LEGACY CLEAR',retro:false,blur:.74,bloom:0,grade:0,legacy:true,nearOffset:8,farOffset:24},
+ {name:'LEGACY SOFT',retro:false,blur:.92,bloom:0,grade:0,legacy:true,nearOffset:4,farOffset:15},
+ {name:'LEGACY VOLUME',retro:false,blur:1,bloom:0,grade:0,legacy:true},
+ {name:'LEGACY AIR',retro:false,blur:.88,bloom:0,grade:0,legacy:true,nearOffset:4,farOffset:12}
 ].map(Object.freeze));
 export const QUALITIES=Object.freeze([
  {name:'LOW',scale:.7,shadow:512,aa:0,blur:0,bloom:0,anisotropy:2,dpr:1},
@@ -13,24 +14,18 @@ export const QUALITIES=Object.freeze([
  {name:'HIGH',scale:1,shadow:2048,aa:1,blur:.9,bloom:.65,anisotropy:8,dpr:1},
  {name:'ULTRA',scale:1,shadow:4096,aa:1,blur:1,bloom:1,anisotropy:16,dpr:1.5}
 ]);
-export function graphicsSettings(styleIndex,qualityIndex,{mode=1,zoom=false,focusDepth=16}={}){
- const s=STYLES[styleIndex],q=QUALITIES[qualityIndex],mini=s.name==='DIORAMA MINIATURE',top=mode===2;
- // Exact v0.5.2 DOF formula for legacy, including its original zoom and overhead behavior.
- const legacy=s.legacy===true;
- const depth=Number.isFinite(focusDepth)?Math.max(1,focusDepth):16;
- const near=legacy?(top?23:zoom?42:25):mini&&top?Math.max(26,depth+10):zoom?60:42;
- const far=legacy?(top?53:zoom?115:85):near+(mini&&top?42:85);
- return {s,q,legacy,scale:s.retro?[.5,.65,.8,1][qualityIndex]:q.scale,
-  aa:s.retro?0:q.aa,
-  blur:legacy?Math.min(1,s.blur*q.blur*(top?1.25:zoom?.35:.85)):s.blur*q.blur*(zoom?.3:top?1:.65),
-  bloom:s.bloom*q.bloom,grade:q.aa?s.grade:0,contrast:q.aa?(s.contrast||0):0,
-  ao:!!s.ao&&qualityIndex===3,near,far,
-  foreground:mini&&top&&!zoom?Math.max(0,depth-9):0,
-  radius:mini?3:1.5,lens:top?(s.lens||1):1};
+export function graphicsSettings(styleIndex,qualityIndex,{mode=1,zoom=false}={}){
+ const s=STYLES[styleIndex],q=QUALITIES[qualityIndex],top=mode===2;
+ return {s,q,legacy:!!s.legacy,scale:s.retro?[.5,.65,.8,1][qualityIndex]:q.scale,
+  aa:s.retro?0:q.aa,blur:Math.min(1,s.blur*q.blur*(top?1.25:zoom?.35:.85)),
+  bloom:s.bloom*q.bloom,grade:q.aa?s.grade:0,ao:false,
+  near:(top?23:zoom?42:25)+(s.nearOffset||0),far:(top?53:zoom?115:85)+(s.farOffset||0),
+  lens:1};
 }
 export function findStyle(name){
  const key=String(name||'').toUpperCase();
- return STYLES.findIndex(s=>s.name===(key==='DIORAMA'?'DIORAMA LEGACY':key));
+ const aliases={'DIORAMA':'DIORAMA LEGACY','DIORAMA MINIATURE':'LEGACY CLEAR','DIORAMA CONTRAST':'LEGACY VOLUME','DIORAMA DREAM':'LEGACY SOFT','DIORAMA TOYBOX':'LEGACY AIR'};
+ return STYLES.findIndex(s=>s.name===(aliases[key]||key));
 }
 export function collectTextures(scene,extras=[]){
  const textures=new Set(extras.filter(t=>t?.isTexture));

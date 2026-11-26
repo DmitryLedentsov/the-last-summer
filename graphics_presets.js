@@ -1,8 +1,7 @@
-import {createSceneStyles} from './scene_style.js?v=054';
-import {createPipeline} from './graphics_pipeline.js?v=054';
-import {createPipeline as createLegacyPipeline} from './graphics_pipeline_legacy.js?v=054';
-import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=054';
-export {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=054';
+import {createSceneStyles} from './scene_style.js?v=055';
+import {createPipeline} from './graphics_pipeline_legacy.js?v=055';
+import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=055';
+export {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=055';
 export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],onChange=()=>{}}){
  let style=0,quality=2,postFailed=false,appliedStyle=-1;
  const query=new URLSearchParams(location.search);
@@ -11,8 +10,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  if(requestedStyle>=0)style=requestedStyle;if(requestedQuality>=0)quality=requestedQuality;
  const bufferSize=new T.Vector2(),applyTextures=createTextureProfiles(T,collectTextures(scene,extraTextures),renderer.capabilities.getMaxAnisotropy());
  const looks=createSceneStyles(T,{scene,renderer,sun,actors,height});
- const pipeline=createPipeline(T,renderer,scene,camera),legacyPipeline=createLegacyPipeline(T,renderer,scene,camera);
- const focus=new T.Vector3();
+ const pipeline=createPipeline(T,renderer,scene,camera);
  function resize(){
   const cfg=graphicsSettings(style,quality);
   const ratio=Math.min(globalThis.devicePixelRatio||1,cfg.s.retro?1:cfg.q.dpr)*cfg.scale;
@@ -20,7 +18,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  }
  function label(){return STYLES[style].name+' / '+QUALITIES[quality].name+(postFailed&&!STYLES[style].retro&&quality>0?' · FX OFF':'');}
  function apply(){
-  const cfg=graphicsSettings(style,quality);postFailed=!pipeline.supported;pipeline.dispose();legacyPipeline.dispose();
+  const cfg=graphicsSettings(style,quality);postFailed=!pipeline.supported;pipeline.dispose();
   if(appliedStyle!==style){looks.apply(cfg.s.name);appliedStyle=style;}renderer.domElement.style.imageRendering=cfg.s.retro?'pixelated':'auto';
   applyTextures(cfg.s.retro,cfg.q.anisotropy);
   const shadow=Math.min(cfg.q.shadow,renderer.capabilities.maxTextureSize);
@@ -28,12 +26,10 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
   renderer.shadowMap.needsUpdate=true;resize();onChange(label());
  }
  function render(mode=1,zoom=false){
-  looks.update();const player=actors.find(a=>a.kind==='player')||actors[0];
-  let focusDepth=16;if(player){focus.copy(player.root.position);focus.y+=1;focus.applyMatrix4(camera.matrixWorldInverse);focusDepth=-focus.z;}
-  const cfg=graphicsSettings(style,quality,{mode,zoom,focusDepth});
-  if(postFailed||cfg.s.retro||!(cfg.aa||cfg.blur||cfg.bloom||cfg.grade||cfg.ao||cfg.contrast)){renderer.render(scene,camera);return;}
+  looks.update();const cfg=graphicsSettings(style,quality,{mode,zoom});
+  if(postFailed||cfg.s.retro||!(cfg.aa||cfg.blur||cfg.bloom||cfg.grade||cfg.ao)){renderer.render(scene,camera);return;}
   const oldAuto=renderer.info.autoReset;renderer.info.autoReset=false;renderer.info.reset();
-  try{renderer.getDrawingBufferSize(bufferSize);(cfg.legacy?legacyPipeline:pipeline).render(cfg,bufferSize.x,bufferSize.y);}
+  try{renderer.getDrawingBufferSize(bufferSize);pipeline.render(cfg,bufferSize.x,bufferSize.y);}
   catch(error){console.warn('Graphics pipeline disabled:',error);postFailed=true;onChange(label());renderer.setRenderTarget(null);renderer.info.reset();renderer.render(scene,camera);}
   finally{renderer.setRenderTarget(null);renderer.info.autoReset=oldAuto;}
  }
