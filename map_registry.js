@@ -3,7 +3,7 @@ export const MAPS=Object.freeze({
  sunset:{title:'Лес за городом',subtitle:'Последний свет',builder:'forest',bots:6,monsters:12},
  mist:{title:'Туманная низина',subtitle:'До первого поезда',builder:'forest',bots:6,monsters:10},
  twilight:{title:'Каменный перевал',subtitle:'Место, которого нет',builder:'landscape',bots:4,monsters:6},
- courtyard:{title:'Забытый двор',subtitle:'Ночной двор',builder:'courtyard',bots:2,monsters:3},
+ courtyard:{title:'Забытый двор',subtitle:'03:17. Никого нет.',builder:'courtyard',bots:3,monsters:5},
  mindbreak:{title:'Распад сознания',subtitle:'После сна',builder:'mindbreak',bots:6,monsters:12},
  yard:{title:'Тихий квартал',subtitle:'Август. После семи.',builder:'panel',bots:6,monsters:10},
  outskirts:{title:'Пустырь у кольца',subtitle:'Конечная. Перед дождём.',builder:'panel',bots:6,monsters:10},
