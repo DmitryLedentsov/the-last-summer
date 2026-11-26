@@ -44,7 +44,8 @@ export function locomotionRate(mode,speed,backward=false){
  return backward&&(mode==='walk'||mode==='sneak')?-rate:rate;
 }
 
-// v0.5.2 original run clip and playback formula, shared across all moving states.
+// Original run for walk/run; v0.5.7 procedural foot cycle over idle for sneak.
 export function legacyLocomotion(gait,speed){
- return gait==='idle'?{clip:'idle',rate:1}:{clip:'run',rate:clamp(speed/3.8,.40,1.25)};
+ if(gait==='sneak')return {clip:'idle',rate:1,procedural:true};
+ return gait==='idle'?{clip:'idle',rate:1,procedural:false}:{clip:'run',rate:clamp(speed/3.8,.40,1.25),procedural:false};
 }

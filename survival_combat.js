@@ -2,15 +2,16 @@ import {inflateSync} from 'three/addons/libs/fflate.module.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
 import {clone as cloneRig} from 'three/addons/utils/SkeletonUtils.js';
-import {hitsCollider,hitsTreeRay} from './tree_collision.js?v=060';
+import {hitsCollider,hitsTreeRay} from './tree_collision.js?v=061';
 import {RULES as R,newCombat,canFire,fire,roll,reload,tickCombat,rollProgress,spread,sphereHit} from './duel_rules.js?v=043';
 import {createCombatFX} from './duel_fx.js?v=044';
 import {makeSightCache,createHitFeedback,createProfiler,steeringChoice} from './duel_perf.js?v=045';
 import {createPlayerInput,keyCode,playerMotion,reticleDiameter} from './player_input.js?v=047';
-import {analogSpeed,approach,movementFacing,sprintAvailable,createPoseLayer,locomotionMode,legacyLocomotion} from './character_motion.js?v=060';
-import {IDLE_DELAY,idleActivity,advanceIdle,makeQuietIdle} from './idle_animation.js?v=060';
-import {weaponPoseState,boundedAim,poseReach} from './weapon_pose.js?v=060';
-import {createGraphics} from './graphics_presets.js?v=060';
+import {analogSpeed,approach,strideLength,gaitStride,movementFacing,sprintAvailable,createPoseLayer,locomotionMode,legacyLocomotion} from './character_motion.js?v=061';
+import {createLegSolver} from './leg_ik.js?v=061';
+import {IDLE_DELAY,idleActivity,advanceIdle,makeQuietIdle} from './idle_animation.js?v=061';
+import {weaponPoseState,boundedAim,poseReach} from './weapon_pose.js?v=061';
+import {createGraphics} from './graphics_presets.js?v=061';
 import {createRenderPose} from './render_pose.js?v=048';
 import {createTouchControls,mergeMotion} from './touch_controls.js?v=049';
 
@@ -113,22 +114,40 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
 
 
  const legs=['left','right'].map(side=>[findBone(hero.model,side+'upleg'),findBone(hero.model,side+'leg'),findBone(hero.model,side+'foot')]).filter(a=>a.every(Boolean));const legBones=legs.flat(),legBase=legBones.map(b=>b.quaternion.clone());
+ const legSolver=createLegSolver(T,hero.root,legs),restFeet=legSolver.entries.map(e=>e.rest);
+ const centerX=restFeet.reduce((sum,p)=>sum+p.x,0)/Math.max(1,restFeet.length),gaitDirection=V();
+ function resetGait(){gaitDirection.set(0,0,0);}
+ function locomotionPose(walkWeight,stanceWeight,phase,actual,speed,dt){
+  const weight=Math.max(walkWeight,stanceWeight);if(weight<.001||!legs.length){resetGait();return;}
+  hero.root.updateMatrixWorld(true);
+  const bodyQ=hero.root.getWorldQuaternion(new T.Quaternion()),forward=dir(hero.root.rotation.y);
+  const localMove=actual.clone().applyQuaternion(bodyQ.clone().invert());localMove.y=0;
+  if(localMove.lengthSq()<1e-6)localMove.set(0,0,0);else localMove.normalize();
+  // Keep the stride direction continuous through a body turn / reversal.
+  localMove.x=clamp(localMove.x,-.30,.30);gaitDirection.lerp(localMove,1-Math.exp(-dt*12));
+  const feet=legs.map(([, ,foot],i)=>{
+   const current=world(foot),q=foot.getWorldQuaternion(new T.Quaternion()),step=gaitStride(phase+i*.5,strideLength(speed));
+   const rest=restFeet[i],side=Math.sign(rest.x-centerX)|| (i===0?-1:1);
+   const target=rest.clone().addScaledVector(gaitDirection,step.offset*walkWeight);
+   target.x+=side*.045*stanceWeight;target.z+=(i===0?.065:-.065)*stanceWeight;
+   target.x=side<0?Math.min(centerX-.035,target.x):Math.max(centerX+.035,target.x);
+   const p=hero.root.localToWorld(target);
+   p.y=height(p.x,p.z)+rest.y+step.lift*Math.min(1,speed/.75)*walkWeight;
+   // Blend the target exactly once, before solving the chain.
+   p.lerp(current,1-weight);
+   return {p,q};
+  });
+  hero.pivot.position.y-=.11*stanceWeight+.025*walkWeight*(1-stanceWeight);hero.root.updateMatrixWorld(true);
+  for(let i=0;i<legs.length;i++)legSolver.solve(i,feet[i].p,feet[i].q,bodyQ,weight);
+  if(spine&&stanceWeight>.001){const side=dir(hero.root.rotation.y-Math.PI/2),q=new T.Quaternion().setFromAxisAngle(side,-.15*stanceWeight).multiply(spine.getWorldQuaternion(new T.Quaternion()));setWorldQ(spine,q);}
+ }
  function tuckLegs(t){if(t<=0)return;const q=hero.pivot.getWorldQuaternion(new T.Quaternion());for(const [hip,knee,foot] of legs){const a=world(hip),b=world(knee),c=world(foot),l=a.distanceTo(b),m=b.distanceTo(c);const k=a.clone().addScaledVector(V(0,-.35,.94).normalize().applyQuaternion(q),l);pointBone(hip,knee,b.clone().lerp(k,t));const now=world(knee),old=world(foot),f=now.clone().addScaledVector(V(0,-.55,-.84).normalize().applyQuaternion(q),m);pointBone(knee,foot,old.lerp(f,t));}}
  // Preserve the animated foot positions, lower the pelvis, then solve the two-bone legs.
  const spine=findBone(hero.model,'spine'),spineBase=spine?.quaternion.clone();
- function stancePose(weight){
-  if(weight<=.001)return;
-  hero.root.updateMatrixWorld(true);
-  const forward=dir(hero.root.rotation.y),side=dir(hero.root.rotation.y-Math.PI/2);
-  const feet=legs.map(([hip,knee,foot],i)=>{const h=world(hip),k=world(knee),f=world(foot);return {p:f.clone().addScaledVector(side,(i===0?-1:1)*.055*weight).addScaledVector(forward,(i===0?.08:-.08)*weight),q:foot.getWorldQuaternion(new T.Quaternion()),l:h.distanceTo(k),m:k.distanceTo(f)};});
-  hero.pivot.position.y-=.14*weight;hero.root.updateMatrixWorld(true);
-  for(let i=0;i<legs.length;i++){const [hip,knee,foot]=legs[i],{p,q,l,m}=feet[i],a=world(hip),delta=p.clone().sub(a);if(l<.001||m<.001||delta.lengthSq()<1e-8)continue;const len=clamp(delta.length(),Math.abs(l-m)+.001,l+m-.001);delta.normalize();const along=(l*l-m*m+len*len)/(2*len),bend=Math.sqrt(Math.max(0,l*l-along*along));const pole=forward.clone().addScaledVector(delta,-forward.dot(delta));if(pole.lengthSq()<1e-6)pole.copy(side);pole.normalize();const joint=a.clone().addScaledVector(delta,along).addScaledVector(pole,bend);pointBone(hip,knee,joint);pointBone(knee,foot,a.clone().addScaledVector(delta,len));setWorldQ(foot,q);}
-  if(spine){const q=new T.Quaternion().setFromAxisAngle(side,-.15*weight).multiply(spine.getWorldQuaternion(new T.Quaternion()));setWorldQ(spine,q);}
- }
  const quietHead=[];hero.model.traverse(b=>{if(b.isBone&&/(head|neck)\d*$/i.test(b.name.replace(/[^a-z0-9]/gi,'')))quietHead.push([b,b.quaternion.clone()]);});
  function stabilizeHead(){for(const [bone,q] of quietHead)bone.quaternion.copy(q);}
  const poseLayer=createPoseLayer([...poseBones,...legBones,spine,...quietHead.map(([b])=>b)]);
- return Object.assign(hero,{muzzle,poseGun,poseBones,poseBase,socket,legBones,legBase,tuckLegs,stancePose,stabilizeHead,spine,spineBase,poseLayer});}
+ return Object.assign(hero,{muzzle,poseGun,poseBones,poseBase,socket,legBones,legBase,tuckLegs,locomotionPose,resetGait,stabilizeHead,spine,spineBase,poseLayer});}
 
  const fx=createCombatFX(T,scene,height,camera), hero=armed(), pos=hero.root.position, actors=[], projectiles=[], corpses=[], noises=[];
  const input=createPlayerInput(),keys=input.keys,vel=V(),targetVel=V();
@@ -170,7 +189,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  function targetHit(o,d,max,owner){let target=null,t=max;for(const a of actors){if(a===owner||!a.alive)continue;const p=a.root.position, rolling=a.c.roll>0;const crouch=a.stanceWeight||0,shapes=rolling?[[.42,.38],[.72,.29]]:[[.43,.29],[.94-.10*crouch,.34],[1.42-.14*crouch,.30]];for(const [y,r] of shapes){const z=sphereHit(o.x,o.y,o.z,d.x,d.y,d.z,p.x,p.y+y,p.z,r,t);if(z<t){target=a;t=z;}}}return {target,t};}
  function getAim(){const ray=aimRay(),wall=obstruction(ray.origin,ray.direction,85,.22),hit=targetHit(ray.origin,ray.direction,wall,hero);return ray.at(hit.t,V());}
  function groundSpawn(a,initial=false){let best=null,bestScore=-Infinity;for(let i=0;i<240;i++){let x,z;if(initial&&a===hero&&i===0){[x,z]=level.spawn;}else if(initial&&a.kind==='bot'){const angle=a.slot*1.047+rnd()*.45,r=12+rnd()*19;x=level.spawn[0]+Math.sin(angle)*r;z=level.spawn[1]+Math.cos(angle)*r;}else if(a.kind==='monster'&&i<150){const angle=rnd()*6.28,r=25+rnd()*38;x=pos.x+Math.sin(angle)*r;z=pos.z+Math.cos(angle)*r;}else{x=(rnd()-.5)*(level.limit*2-5);z=(rnd()-.5)*(level.limit*2-5);}if(!allowed(x,z,.48))continue;const p=V(x,height(x,z),z);let min=100;for(const b of actors)if(b!==a&&b.alive)min=Math.min(min,flatDist(p,b.root.position));if(min<3)continue;let score=initial?-(a===hero?flatDist(p,V(level.spawn[0],0,level.spawn[1])):Math.abs(min-(a.kind==='monster'?17:9))):min;if(!initial){const d=flatDist(p,pos);score=Math.min(min,22)-Math.abs(d-(a===hero?30:a.kind==='monster'?36:29))*.7;if(d<15)score-=45;}if(!initial&&a!==hero&&flatDist(p,pos)<18)score-=45;if(!initial&&a!==hero&&clearLine(pos.clone().add(V(0,1.4,0)),p.clone().add(V(0,1,0))))score-=12;if(score>bestScore){best=p;bestScore=score;}if(initial&&a===hero&&i===0)break;}return best;}
- function reset(a,initial=false){const p=groundSpawn(a,initial);if(!p){a.respawn=1;return false;}a.generation=(a.generation||0)+1;a.poseElapsed=0;a.c=newCombat();a.alive=true;a.respawn=0;a.root.visible=true;a.root.position.copy(p);a.root.rotation.y=a===hero?yaw+Math.PI:rnd()*6.28;a.pivot.rotation.set(0,0,0);a.pivot.scale.setScalar(1);a.pivot.position.y=.88;a.poseLayer?.restore();a.mixer.stopAllAction();a.resetAnimation?.();a.play(a.kind==='monster'?'idle':'__quiet');a.mixer.update(.001);a.poseLayer?.capture();a.sprintExhausted=false;a.idleSeconds=0;a.scanning=false;a.target=null;a.goal=null;a.think=0;a.attack=0;a.hitDone=false;a.alert=0;a.heard=null;a.turn=rnd()<.5?-1:1;a.stuck=0;a.velocity=V();a.rollYaw=0;a.aimPoint=p.clone().add(dir(a.root.rotation.y).multiplyScalar(10)).add(V(0,1.2,0));a.wantAim=false;a.stanceWeight=0;a.gait='idle';a.weaponPose={state:'ready',raise:0,support:0};a.actualSpeed=0;a.actualMove=V();a.inv=0;a.lastAim=null;a.hitTime=0;a.lastNoise=clock;a.lastSeen=null;a.goalTime=0;a.wanderUntil=0;if(a.kind==='monster')a.c.hp=85;return true;}
+ function reset(a,initial=false){const p=groundSpawn(a,initial);if(!p){a.respawn=1;return false;}a.generation=(a.generation||0)+1;a.poseElapsed=0;a.c=newCombat();a.alive=true;a.respawn=0;a.root.visible=true;a.root.position.copy(p);a.root.rotation.y=a===hero?yaw+Math.PI:rnd()*6.28;a.pivot.rotation.set(0,0,0);a.pivot.scale.setScalar(1);a.pivot.position.y=.88;a.poseLayer?.restore();a.mixer.stopAllAction();a.resetAnimation?.();a.play(a.kind==='monster'?'idle':'__quiet');a.mixer.update(.001);a.poseLayer?.capture();a.resetGait?.();a.sprintExhausted=false;a.idleSeconds=0;a.scanning=false;a.target=null;a.goal=null;a.think=0;a.attack=0;a.hitDone=false;a.alert=0;a.heard=null;a.turn=rnd()<.5?-1:1;a.stuck=0;a.velocity=V();a.rollYaw=0;a.aimPoint=p.clone().add(dir(a.root.rotation.y).multiplyScalar(10)).add(V(0,1.2,0));a.wantAim=false;a.stanceWeight=0;a.walkWeight=0;a.gaitPhase=0;a.gait='idle';a.weaponPose={state:'ready',raise:0,support:0};a.actualSpeed=0;a.actualMove=V();a.inv=0;a.lastAim=null;a.hitTime=0;a.lastNoise=clock;a.lastSeen=null;a.goalTime=0;a.wanderUntil=0;if(a.kind==='monster')a.c.hp=85;return true;}
  function register(a,kind,slot){if(kind==='bot'){const shades=[0xc2c1a0,0xb8c3b2,0xd1b8a6,0xb0c1ce,0xcac5b4,0xb6ba9d];a.model.traverse(o=>{if(!o.isMesh||!o.visible)return;const tint=m=>{if(!m||!/body/i.test(m.name))return m;const copy=m.clone();copy.color.set(shades[slot%shades.length]);return copy;};o.material=Array.isArray(o.material)?o.material.map(tint):tint(o.material);});}a.kind=kind;a.slot=slot;a.alive=false;a.respawn=0;actors.push(a);scene.add(a.root);reset(a,true);return a;}
  register(hero,'player',0);for(let i=0;i<R.botCount;i++)register(armed(),'bot',i);for(let i=0;i<R.monsterCount;i++)register(actor(monsterSrc,1.83,'monster'),'monster',i);
  const graphics=createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures,onChange:label=>{$('#graphicsstatus').textContent=label;}});
@@ -204,9 +223,12 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  const rolling=c.roll>0,progress=rollProgress(c),tuck=rolling?Math.sin(progress*Math.PI):0;
   const actual=a.actualMove.copy(a.root.position).sub(beforeMove);actual.y=0;const measured=actual.length()/dt;a.actualSpeed=approach(a.actualSpeed,blocked?0:measured,dt,18);
   const desiredStance=a.wantAim&&!rolling&&!c.recover?1:0;a.stanceWeight=rolling?0:approach(a.stanceWeight,desiredStance,dt,15);
-  const gait=locomotionMode(measured>.04?a.actualSpeed:0,!!cmd.aim,blocked,!!cmd.sprint);
+  const gait=locomotionMode(measured>.04?a.actualSpeed:0,a.wantAim,blocked,!!cmd.sprint);
   a.gait=gait;
   const motion=legacyLocomotion(gait,a.actualSpeed);
+  a.walkWeight=a.wantAim&&!blocked&&!rolling?approach(a.walkWeight,motion.procedural?1:0,dt,12):0;
+  if(motion.procedural)a.gaitPhase=(a.gaitPhase+.6*measured*dt/strideLength(a.actualSpeed))%1;
+  if(!a.wantAim)a.resetGait();
   const activity=idleActivity({commandSpeed:cmd.move.length(),actualSpeed:measured,turnRate:Math.max(Math.abs(aimTurn),Math.abs(wrap(a.root.rotation.y-oldYaw))/dt),
    aim:cmd.aim,zoom:a===hero&&aiming,fire:cmd.fire||c.cd>0,reload:cmd.reload||c.reload>0,roll:rolling||!!cmd.roll,recover:blocked||c.recover>0,hit:c.stagger>0||a.hitTime>0});
   a.idleSeconds=advanceIdle(a.idleSeconds,dt,activity);
@@ -214,15 +236,14 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
   a.scanning=scanning;
   const idle=scanning?'idle':'__quiet';
   a.poseLayer.restore();
-  // Walk, run and crouch-walk share the exact same original FBX action.
-  // Crouch uses the v0.5.2 stance overlay; changing speed never resets the run cycle.
+  // Walk/run use the original run action. Sneak uses the v0.5.7 procedural gait over quiet idle.
   const action=a.play(motion.clip==='run'?'run':idle,false,wasScanning&&!scanning?0:.13);
   if(action)action.timeScale=motion.rate;
  a.hitTime=Math.max(0,(a.hitTime||0)-dt);
  {
  a.pivot.rotation.set(0,0,rolling?c.rollSide*progress*Math.PI*2:0);a.pivot.scale.setScalar(1-.27*tuck);a.pivot.position.y=.88-.33*tuck;
  if(a.hitTime&& !rolling){a.pivot.rotation.x=Math.sin(a.hitTime/.28*Math.PI)*.12;a.pivot.rotation.z=Math.sin(a.hitTime/.28*Math.PI)*.09;}
- a.mixer.update(dt);a.poseLayer.capture();if(!scanning&&!rolling)a.stabilizeHead();a.tuckLegs(tuck);if(!rolling)a.stancePose(a.stanceWeight);
+ a.mixer.update(dt);a.poseLayer.capture();if(!scanning&&!rolling)a.stabilizeHead();a.tuckLegs(tuck);if(!rolling&&!blocked&&a.wantAim)a.locomotionPose(a.walkWeight,a.stanceWeight,a.gaitPhase,actual,a.actualSpeed,dt);
  a.weaponPose=weaponPoseState(c,a.wantAim,a.weaponPose,dt,cmd.fire&&canFire(c)&&!blocked);
  a.poseGun(a.aimPoint,c.recoil,a.weaponPose);}
 
@@ -251,7 +272,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  a.pivot.rotation.set(a.hitTime?Math.sin(a.hitTime/.28*Math.PI)*.12:0,0,0);a.mixer.update(dt);}
  let reloadRequested=false;
  function playerCommand(dt){const mobile=touch.active?touch.state:null,k=mobile?{stance:false,f:0,r:0,sprintKey:false}:playerMotion(keys),stance=mobile?mobile.stance:k.stance,rotate=mode===2?(Number(keys.has('KeyQ'))-Number(keys.has('KeyE'))+(mobile?.rotate||0))*1.45:0;yaw+=rotate*dt;const {f,r}=mergeMotion(k.f,k.r,mobile,stance),c=hero.c,energy=sprintAvailable(c.stamina,hero.sprintExhausted);hero.sprintExhausted=energy.exhausted;const canSprint=!stance&&energy.available&&fireBuffer<=0,magnitude=Math.hypot(f,r),sprint=canSprint&&k.sprintKey&&magnitude>0,speed=mobile?analogSpeed(magnitude,{stance,canSprint}):(sprint?4.7:stance?1.12:2.65)*magnitude;const scale=magnitude>0?speed/magnitude:0;targetVel.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*scale,0,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*scale);if(!stance)input.consumeRoll();const req=input.rollAt(clock),turn=input.turnRate(dt,rotate),wantsFire=fireBuffer>0,wantsReload=keys.has('KeyR')||reloadRequested;fireBuffer=Math.max(0,fireBuffer-dt);if(wantsReload&&c.cd<=0&&c.roll<=0&&c.recover<=0&&c.stagger<=0)reloadRequested=false;return {move:targetVel,aimPoint:getAim(),faceYaw:mode===1?movementFacing(hero.root.rotation.y,targetVel.x,targetVel.z,stance||wantsFire||c.cd>.20||!!req,yaw+Math.PI):stance||wantsFire||c.cd>.20||req?undefined:movementFacing(hero.root.rotation.y,targetVel.x,targetVel.z,false,0),turn,aim:stance,fire:wantsFire,reload:wantsReload,roll:req,sprint:!!sprint||!!(mobile&&canSprint&&speed>2.65)};}
- function hudUpdate(){const c=hero.c;$('#hp').textContent=Math.ceil(c.hp)+'%';$('#hpfill').style.width=c.hp+'%';$('#staminafill').style.width=c.stamina+'%';$('#ammo').textContent=c.ammo+' / '+(Number.isFinite(c.reserve)?c.reserve:'∞');$('#rounds').textContent=Array.from({length:6},(_,i)=>i<c.ammo?'●':'○').join(' ');$('#score').textContent='Устранено '+kills+' · Смертей '+deaths;$('#wave').textContent='СВОБОДНЫЙ БОЙ / '+actors.filter(a=>a.kind==='bot'&&a.alive).length+' БОТОВ / '+actors.filter(a=>a.kind==='monster'&&a.alive).length+' СУЩЕСТВ';$('#mode').textContent=mode===1?'01 / ИЗ-ЗА ПЛЕЧА':'02 / СВЕРХУ · Q/E';$('#action').textContent=!hero.alive?'':c.roll>0?'УКЛОНЕНИЕ':c.recover>0?'ВОССТАНОВЛЕНИЕ':c.reload>0?'ЗАРЯЖАНИЕ…':c.cd>.1?'ОТДАЧА':hero.wantAim?(c.focus>.98?'ПРИЦЕЛ СВЕДЁН':'СВЕДЕНИЕ '+Math.round(c.focus*100)+'%'):'НАВСКИДКУ';$('#damage').style.opacity=damage*.72;dot.hidden=!locked||!hero.alive;dot.style.left=(mode===1?50:retX*100)+'%';dot.style.top=(mode===1?50:retY*100)+'%';const diameter=reticleDiameter(c,hero.wantAim,hero.velocity.length(),innerHeight,camera.fov);dot.style.width=dot.style.height=diameter+'px';dot.classList.toggle('focused',hero.wantAim&&c.focus>.96);dot.classList.toggle('aiming',hero.wantAim);$('#inputstate').textContent='06.0 · '+(hero.gait||'idle').toUpperCase()+' · '+((touch.active?touch.state.stance:keys.has('Space'))?'СТОЙКА ':hero.sprintExhausted?'ВОССТ. СИЛ ':'ХОДЬБА ')+(keys.has('ArrowLeft')||keys.has('KeyA')?'← ':keys.has('ArrowRight')||keys.has('KeyD')?'→ ':'')+' · '+Math.round(c.focus*100)+'% · '+(c.roll>0?'ПЕРЕКАТ':c.recover>0?'ВОССТ.':input.rollAt(clock)?'ОЖИДАНИЕ':'ГОТОВ');dot.style.setProperty('--focus',c.focus.toFixed(3));$('#respawn').hidden=hero.alive||!locked;$('#respawnTime').textContent=Math.ceil(Math.max(0,hero.respawn));}
+ function hudUpdate(){const c=hero.c;$('#hp').textContent=Math.ceil(c.hp)+'%';$('#hpfill').style.width=c.hp+'%';$('#staminafill').style.width=c.stamina+'%';$('#ammo').textContent=c.ammo+' / '+(Number.isFinite(c.reserve)?c.reserve:'∞');$('#rounds').textContent=Array.from({length:6},(_,i)=>i<c.ammo?'●':'○').join(' ');$('#score').textContent='Устранено '+kills+' · Смертей '+deaths;$('#wave').textContent='СВОБОДНЫЙ БОЙ / '+actors.filter(a=>a.kind==='bot'&&a.alive).length+' БОТОВ / '+actors.filter(a=>a.kind==='monster'&&a.alive).length+' СУЩЕСТВ';$('#mode').textContent=mode===1?'01 / ИЗ-ЗА ПЛЕЧА':'02 / СВЕРХУ · Q/E';$('#action').textContent=!hero.alive?'':c.roll>0?'УКЛОНЕНИЕ':c.recover>0?'ВОССТАНОВЛЕНИЕ':c.reload>0?'ЗАРЯЖАНИЕ…':c.cd>.1?'ОТДАЧА':hero.wantAim?(c.focus>.98?'ПРИЦЕЛ СВЕДЁН':'СВЕДЕНИЕ '+Math.round(c.focus*100)+'%'):'НАВСКИДКУ';$('#damage').style.opacity=damage*.72;dot.hidden=!locked||!hero.alive;dot.style.left=(mode===1?50:retX*100)+'%';dot.style.top=(mode===1?50:retY*100)+'%';const diameter=reticleDiameter(c,hero.wantAim,hero.velocity.length(),innerHeight,camera.fov);dot.style.width=dot.style.height=diameter+'px';dot.classList.toggle('focused',hero.wantAim&&c.focus>.96);dot.classList.toggle('aiming',hero.wantAim);$('#inputstate').textContent='06.1 · '+(hero.gait||'idle').toUpperCase()+' · '+((touch.active?touch.state.stance:keys.has('Space'))?'СТОЙКА ':hero.sprintExhausted?'ВОССТ. СИЛ ':'ХОДЬБА ')+(keys.has('ArrowLeft')||keys.has('KeyA')?'← ':keys.has('ArrowRight')||keys.has('KeyD')?'→ ':'')+' · '+Math.round(c.focus*100)+'% · '+(c.roll>0?'ПЕРЕКАТ':c.recover>0?'ВОССТ.':input.rollAt(clock)?'ОЖИДАНИЕ':'ГОТОВ');dot.style.setProperty('--focus',c.focus.toFixed(3));$('#respawn').hidden=hero.alive||!locked;$('#respawnTime').textContent=Math.ceil(Math.max(0,hero.respawn));}
  function pause(){hero.idleSeconds=0;locked=false;touch.stop();reloadRequested=false;feedback.clear();input.clear();trigger=aiming=false;fireBuffer=0;menu.hidden=false;hud.hidden=true;dot.hidden=true;$('#respawn').hidden=true;start.textContent='Продолжить';}
  start.onclick=()=>{fx.initAudio();if(touch.selected){if(document.pointerLockElement)document.exitPointerLock();input.clear();touch.start();touch.setView(mode);if(!touchQualityInitialized){if(!graphics.explicitQuality)graphics.setQuality(0);touchQualityInitialized=true;}locked=true;menu.hidden=true;hud.hidden=false;dot.hidden=!hero.alive;return;}try{renderer.domElement.requestPointerLock()?.catch?.(()=>status.textContent='Не удалось захватить мышь.');}catch{status.textContent='Захват мыши недоступен.';}};
  document.addEventListener('pointerlockchange',()=>{if(touch.active)return;locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;hud.hidden=false;dot.hidden=!hero.alive;}else pause();});document.addEventListener('pointerlockerror',()=>status.textContent='Браузер не разрешил захват мыши.');
@@ -267,7 +288,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  function simulate(dt){clock+=dt;damage=Math.max(0,damage-dt*2.7);camKick=Math.max(0,camKick-dt*7.5);while(noises.length&&clock-noises[0].t>3)noises.shift();for(const a of actors){if(!a.alive){a.respawn-=dt;if(a.respawn<=0&&reset(a)){a.inv=1.5;if(a===hero){yaw=a.root.rotation.y-Math.PI;retX=retY=.5;cameraUpdate(.1,true);}}continue;}a.inv=Math.max(0,a.inv-dt);if(a.kind==='monster')updateMonster(a,dt);else{const old=a.root.position.clone(),cmd=a===hero?playerCommand(dt):botCommand(a,dt);advanceArmed(a,dt,cmd);if(a!==hero){if(flatDist(old,a.root.position)<.005&&cmd.move.length()>.1)a.stuck+=dt;else a.stuck=Math.max(0,a.stuck-dt);}}}
  updateBullets(dt);for(let i=corpses.length-1;i>=0;i--){const b=corpses[i];b.t+=dt;if(!b.settled){const f=clamp(b.t/.48,0,1),s=f*f*(3-2*f);b.pivot.rotation.set(b.back*s*1.40,0,b.side*s*.32);b.pivot.position.y=.88-.60*s;b.root.position.y=b.ground;if(f>=1){b.root.updateMatrixWorld(true);b.root.traverse(o=>{o.matrixAutoUpdate=false;});b.settled=true;}}if(b.t>65){scene.remove(b.root);b.root.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});corpses.splice(i,1);}}fx.update(dt);}
  const preview=new URLSearchParams(location.search).get('preview')==='1';if(preview&&new URLSearchParams(location.search).get('view')==='top')mode=2;
- cameraUpdate(.1,true);for(const a of actors)if(a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 06.0 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
+ cameraUpdate(.1,true);for(const a of actors)if(a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 06.1 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
  const playerRenderPose=createRenderPose(hero.root);
  let last=performance.now(),acc=0;
  renderer.setAnimationLoop(now=>{

@@ -172,3 +172,7 @@ Headless checks on the actual hero FBX (Three.js r170): custom walk 51 keyframes
 ## v0.6.0 — Roll back experimental locomotion
 
 Restores the v0.5.2 lower-body stance and roll animation code verbatim. Walk, sprint and cautious movement all use the original FBX run action; only playback speed and the original stance overlay differ. No imported/baked gait assets or new leg IK are loaded. Retains the later mixer pose cache, original idle with two-second gate, current weapon attachment, touch sprint recovery, movement-facing, graphics and tree collisions. Original roll squash is restored as part of the animation rollback. No movement speeds or combat balance changes. Browser visual verification not performed.
+
+## v0.6.1 — Restore actual pre-import sneak gait
+
+v0.6.0 incorrectly restored the older slow-run stance overlay rather than the procedural sneak from v0.5.7 (94fbb088). Restore the exact locomotionPose/resetGait implementation and leg solver from v0.5.7, exclusively for aiming movement (and its stationary stance). Sneak now plays quiet idle plus the historical alternating foot targets, with phase driven by distance traveled. Ordinary walk and sprint keep the original run clip with scaled playback; no leg IK during normal motion, including exhausted walking. Keep v0.6.0 roll, idle gate, graphics, collisions, weapon and input unchanged. No new animations or assets. Visual gameplay not verified.
