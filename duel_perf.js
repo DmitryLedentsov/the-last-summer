@@ -66,12 +66,37 @@ export function createHitFeedback(T,camera,layer){
  function clear(){for(const s of slots){s.remaining=0;s.el.hidden=true;}}
  return {show,render,clear};
 }
-export function createProfiler(renderer,element){
- let visible=false,frames=0,elapsed=0,sim=0,submit=0,calls=0,triangles=0;
- function toggle(){visible=!visible;element.hidden=!visible;frames=elapsed=sim=submit=calls=triangles=0;}
- function sample(dt,simulationMs,renderMs){
-  if(!visible)return;frames++;elapsed+=dt;sim+=simulationMs;submit+=renderMs;calls+=renderer.info.render.calls;triangles+=renderer.info.render.triangles;
-  if(elapsed>=.5){element.textContent=Math.round(frames/elapsed)+' FPS  |  SIM '+(sim/frames).toFixed(1)+' ms  |  SUBMIT '+(submit/frames).toFixed(1)+' ms\nDRAW '+Math.round(calls/frames)+'  |  TRI '+Math.round(triangles/frames).toLocaleString('en-US')+'  |  SHADOW 2048 / F4';frames=elapsed=sim=submit=calls=triangles=0;}
+// Same candidates, scores and order as the original steering. The upper bound
+// excludes only candidates mathematically unable to beat the best score.
+export function steeringChoice(heading,turn,stuck,velocity,lookDistance,p,actor,actors,allowed){
+ const vx=velocity?.x||0,vz=velocity?.z||0,bonus=Math.hypot(vx,vz)*.06;
+ let best=null,bestScore=-Infinity;
+ for(const off of [0,.45,-.45,.9,-.9,1.4,-1.4,2,-2,2.7,-2.7,Math.PI]){
+  const base=-Math.abs(off)*.65;
+  if(best&&base+bonus<bestScore-1e-10)break;
+  const angle=heading+off*turn,x=Math.sin(angle),z=Math.cos(angle),lx=p.x+x*lookDistance,lz=p.z+z*lookDistance;
+  if(!allowed(lx,lz,.42)||!allowed(p.x+x*.32,p.z+z*.32,.39))continue;
+  let score=base-(stuck>.55&&off===0?2:0);
+  for(const b of actors)if(b!==actor&&b.alive&&(lx-b.root.position.x)**2+(lz-b.root.position.z)**2<.81)score-=2;
+  score+=(x*vx+z*vz)*.06;
+  if(score>bestScore){bestScore=score;best={x,z};}
  }
- return {toggle,sample};
+ return best;
+}
+export function createProfiler(renderer,element){
+ let visible=false,frames=0,elapsed=0,sim=0,submit=0,calls=0,triangles=0,frameTimes=[],gpuMs=null,query=null,active=false;
+ const gl=renderer.getContext(),ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
+ function discard(){if(query&&!active){gl.deleteQuery(query);query=null;}}
+ function toggle(){visible=!visible;element.hidden=!visible;frames=elapsed=sim=submit=calls=triangles=0;frameTimes=[];gpuMs=null;discard();}
+ function beforeRender(){
+  if(!visible||!ext)return;
+  if(query&&gl.getQueryParameter(query,gl.QUERY_RESULT_AVAILABLE)){if(!gl.getParameter(ext.GPU_DISJOINT_EXT))gpuMs=gl.getQueryParameter(query,gl.QUERY_RESULT)/1e6;else gpuMs=null;discard();}
+  if(!query&&frames%8===0){query=gl.createQuery();if(query){gl.beginQuery(ext.TIME_ELAPSED_EXT,query);active=true;}}
+ }
+ function afterRender(){if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);active=false;}}
+ function sample(dt,simulationMs,renderMs,quality){
+  if(!visible)return;frames++;elapsed+=dt;sim+=simulationMs;submit+=renderMs;calls+=renderer.info.render.calls;triangles+=renderer.info.render.triangles;frameTimes.push(dt*1000);
+  if(elapsed>=.6){const sorted=frameTimes.slice().sort((a,b)=>a-b),p95=sorted[Math.ceil(sorted.length*.95)-1];element.textContent=Math.round(frames/elapsed)+' FPS  |  FRAME P95 '+p95.toFixed(1)+' ms\nSIM '+(sim/frames).toFixed(1)+' ms  |  SUBMIT '+(submit/frames).toFixed(1)+' ms  |  GPU '+(gpuMs===null?'n/a':gpuMs.toFixed(1)+' ms')+'\nDRAW '+Math.round(calls/frames)+'  |  TRI '+Math.round(triangles/frames).toLocaleString('en-US')+'  |  '+quality+' / F4';frames=elapsed=sim=submit=calls=triangles=0;frameTimes=[];}
+ }
+ return {toggle,beforeRender,afterRender,sample};
 }
