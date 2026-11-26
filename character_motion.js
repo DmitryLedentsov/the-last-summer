@@ -20,3 +20,16 @@ export function rollPose(progress){
 export function movementFacing(yaw,dx,dz,aim,aimYaw){
  if(aim)return aimYaw;return dx*dx+dz*dz>.04?Math.atan2(dx,dz):yaw;
 }
+
+// Exhaustion latch prevents a held sprint from consuming each tiny stamina refill.
+export function sprintAvailable(stamina,exhausted){
+ const next=exhausted?stamina<15:stamina<=1;
+ return {available:!next,exhausted:next};
+}
+// Cache only the unmodified mixer pose, never the final IK pose.
+// Three's PropertyMixer may skip writing a track when its value is unchanged.
+export function createPoseLayer(bones){
+ const unique=[...new Set(bones.filter(Boolean))],base=unique.map(b=>b.quaternion.clone());
+ return {restore(){unique.forEach((b,i)=>b.quaternion.copy(base[i]));},
+  capture(){unique.forEach((b,i)=>base[i].copy(b.quaternion));}};
+}

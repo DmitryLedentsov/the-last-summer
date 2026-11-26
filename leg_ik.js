@@ -30,8 +30,9 @@ export function createLegSolver(T,root,legs){
    // Store exact rest offsets rather than using the other leg as the pole.
    rest:root.worldToLocal(c.clone())};
  });
- function solve(i,target,footRotation,bodyQ){
-  const e=entries[i],{hip,knee,foot}=e,a=world(hip),b=world(knee),c=world(foot);
+ function solve(i,target,footRotation,bodyQ,weight=1){
+  weight=Math.max(0,Math.min(1,weight));if(weight<=0)return false;
+  const e=entries[i],{hip,knee,foot}=e,chain=[hip,knee,foot],original=weight<1?chain.map(b=>b.quaternion.clone()):null,a=world(hip),b=world(knee),c=world(foot);
   const l=a.distanceTo(b),m=b.distanceTo(c),axis=target.clone().sub(a);
   if(l<.001||m<.001||axis.lengthSq()<1e-8)return false;
   const length=legReach(l,m,axis.length());axis.normalize();
@@ -43,6 +44,9 @@ export function createLegSolver(T,root,legs){
   const upperQ=q().setFromRotationMatrix(basis(joint.clone().sub(a),normal).multiply(e.upper));
   const lowerQ=q().setFromRotationMatrix(basis(end.clone().sub(joint),normal).multiply(e.lower));
   setWorld(hip,upperQ);setWorld(knee,lowerQ);setWorld(foot,footRotation);
+  // Blend rotations in joint-local space, not merely the ankle target. At zero
+  // influence the original animation (including its twist) must be untouched.
+  if(original){chain.forEach((b,j)=>b.quaternion.copy(original[j].slerp(b.quaternion,weight)));hip.updateWorldMatrix(false,true);}
   return true;
  }
  return {entries,solve};
