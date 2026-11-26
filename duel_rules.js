@@ -12,7 +12,8 @@ export function tickCombat(c,dt,{aim=false,speed=0,turn=0,sprint=false}={}){c.cd
  let travel=0,loaded=false;if(c.roll>0){const a=rollProgress(c);c.roll=Math.max(0,c.roll-dt);travel=(rollTravel(rollProgress(c))-rollTravel(a))*RULES.rollDistance;if(!c.roll)c.recover=RULES.recoverTime;}
  if(c.reload>0){c.reload=Math.max(0,c.reload-dt);if(!c.reload&&c.ammo<6&&c.reserve>0){c.ammo++;c.reserve--;loaded=true;if(c.ammo<6&&c.reserve>0)c.reload=RULES.roundTime;}}
  if(sprint&&speed>1&&c.roll<=0){c.stamina=Math.max(0,c.stamina-15*dt);c.regenDelay=.7;}else if(!c.regenDelay&&c.roll<=0)c.stamina=Math.min(100,c.stamina+23*dt);
- if(aim&&speed<1.25&&turn<1.1&&c.cd<=.05&&!c.roll&&!c.recover&&!c.reload&&!c.stagger){c.focus=Math.min(1,c.focus+dt/RULES.focusTime*(speed>.25?.56:1));}else c.focus=Math.max(0,c.focus-dt*(turn>2||sprint?6:3));
+ if(!aim)c.focus=0;
+ else if(speed<1.25&&turn<1.1&&c.cd<=.05&&!c.roll&&!c.recover&&!c.reload&&!c.stagger){c.focus=Math.min(1,c.focus+dt/RULES.focusTime*(speed>.25?.56:1));}else c.focus=Math.max(0,c.focus-dt*(turn>2||sprint?6:3));
  return {travel,loaded};}
 export function spread(focus,aim,speed){return (aim?(.004+.068*(1-focus)**1.8):.105)+Math.min(speed,5)*.007;}
 // segment against sphere; returns distance along unit direction, or Infinity.
