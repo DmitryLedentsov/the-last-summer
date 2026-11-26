@@ -107,3 +107,7 @@ F3 — FPS, p95 времени кадра, CPU simulation/submit, GPU timer (е�
 ## v0.4.7 — Analog touch / player render interpolation
 
 На всех локациях бег задаётся отклонением джойстика к краю (82% нормализованного отклонения, выход ниже 72%). В PvPvE при включённой стойке боковой жест джойстика запрашивает один перекат, повтор — после отпускания, возврата ближе к центру или смены стороны. Вперёд/назад — медленный шаг. Отдельные кнопки бега и перекатов удалены. Клавиатурное управление прежнее. Игрок и его скелет интерполируются между тиками только на время рендера; положение, поза и коллизии симуляции восстанавливаются сразу после кадра. Камера следует визуальному положению. Симуляция и боевые параметры не изменены. Визуальный тест на физическом телефоне ещё необходим.
+
+## v0.4.8 — Camera / heading regression fix
+
+Render interpolation now preserves the exact gameplay root Euler rotation, not just its equivalent quaternion. This avoids Three.js XYZ Euler canonicalization changing the heading read by the next simulation tick. Camera offset, zoom, controls and interpolation remain unchanged. Reload the page to reset the old session's corrupted heading.
