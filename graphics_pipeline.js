@@ -7,17 +7,24 @@ const down=
  'varying vec2 vUv;uniform sampler2D source;uniform vec2 pixel;void main(){vec3 c=texture2D(source,vUv).rgb*4.0;'+
  'c+=texture2D(source,vUv+pixel*vec2(1.,1.)).rgb; c+=texture2D(source,vUv+pixel*vec2(-1.,1.)).rgb;'+
  'c+=texture2D(source,vUv+pixel*vec2(1.,-1.)).rgb;c+=texture2D(source,vUv+pixel*vec2(-1.,-1.)).rgb;gl_FragColor=vec4(c*.125,1.);}';
+// Experimental styles: small depth-aware optical taps, not full-resolution mixing with
+// a heavily blurred pyramid. The pyramid is used only for low-frequency glow / contrast.
 const composite=[
- 'varying vec2 vUv;uniform sampler2D sharp,soft,medium,wide,depth;uniform float nearPlane,farPlane,focusEnd,blurEnd,amount,glow,grade,foreground,contrast;',
+ 'varying vec2 vUv;uniform sampler2D sharp,soft,medium,wide,depth;uniform vec2 pixel;uniform float nearPlane,farPlane,focusEnd,blurEnd,amount,glow,grade,foreground,contrast,radius;',
  'float linearDepth(float d){return nearPlane*farPlane/max(.00001,farPlane-d*(farPlane-nearPlane));}',
- 'void main(){vec3 c=texture2D(sharp,vUv).rgb;float z=linearDepth(texture2D(depth,vUv).r);',
- 'float b=max(smoothstep(focusEnd,blurEnd,z),foreground>0.0?1.0-smoothstep(foreground*.45,foreground,z):0.0)*amount;',
- 'vec3 s=texture2D(soft,vUv).rgb,m=texture2D(medium,vUv).rgb,w=texture2D(wide,vUv).rgb;',
- 'vec3 blurred=mix(mix(s,m,smoothstep(.15,.55,b)),w,smoothstep(.55,1.,b));',
- 'vec3 col=mix(c,blurred,clamp(b,0.,1.)); col=max(vec3(0.),col+(c-s)*contrast);',
- 'col+=max(w-vec3(.85),vec3(0.))*glow;',
- 'float v=smoothstep(.25,.72,length((vUv-.5)*vec2(1.,.85)));',
- 'col=mix(col,col*vec3(.98,1.01,1.045),grade)*(1.-.12*v*grade);gl_FragColor=vec4(col,1.);}'
+ 'float zAt(vec2 uv){return linearDepth(texture2D(depth,uv).r);}',
+ 'float blurAt(float z){return max(smoothstep(focusEnd,blurEnd,z),foreground>0.0?1.0-smoothstep(foreground*.45,foreground,z):0.0)*amount;}',
+ 'void tap(vec2 offset,float z,float b,inout vec3 sum,inout float total){vec2 uv=clamp(vUv+offset,vec2(0.),vec2(1.));float sz=zAt(uv);',
+ 'float similar=1.0-smoothstep(max(.25,z*.025),max(1.0,z*.08),abs(sz-z));',
+ 'float w=similar*smoothstep(0.0,max(.001,b*.65),blurAt(sz));sum+=texture2D(sharp,uv).rgb*w;total+=w;}',
+ 'void main(){vec3 c=texture2D(sharp,vUv).rgb;float z=zAt(vUv),b=blurAt(z);vec3 col=c;',
+ 'if(b>.003){vec2 r=pixel*radius*sqrt(b);vec3 sum=c;float w=1.0;',
+ 'tap(r*vec2(1.,0.),z,b,sum,w);tap(r*vec2(-1.,0.),z,b,sum,w);tap(r*vec2(0.,1.),z,b,sum,w);tap(r*vec2(0.,-1.),z,b,sum,w);',
+ 'tap(r*vec2(.707,.707),z,b,sum,w);tap(r*vec2(-.707,.707),z,b,sum,w);tap(r*vec2(.707,-.707),z,b,sum,w);tap(r*vec2(-.707,-.707),z,b,sum,w);col=mix(c,sum/w,clamp(b,0.,.5));}',
+ 'if(contrast>0.0){vec3 s=texture2D(soft,vUv).rgb;col=max(vec3(0.),col+clamp(c-s,vec3(-.25),vec3(.25))*contrast);}',
+ 'if(glow>0.0){vec3 w=texture2D(wide,vUv).rgb;col+=max(w-vec3(1.0),vec3(0.))*glow;}',
+ 'float luminance=dot(col,vec3(.2126,.7152,.0722));col=mix(col,mix(vec3(luminance),col,.88)*vec3(1.045,1.005,.96),grade);',
+ 'gl_FragColor=vec4(col,1.);}'
 ].join('\n');
 export function createPipeline(T,renderer,scene,camera){
  let width=0,height=0,beauty,combined,aaTarget,aoTarget,pyramid=[],smaa,output,ao,downMat,mixMat,quad,screen,screenCamera;
@@ -39,7 +46,8 @@ export function createPipeline(T,renderer,scene,camera){
   pyramid=[2,4,8].map(n=>target(Math.max(1,Math.floor(w/n)),Math.max(1,Math.floor(h/n))));
   downMat=new T.ShaderMaterial({vertexShader:vertex,fragmentShader:down,uniforms:{source:{value:null},pixel:{value:new T.Vector2()}},depthTest:false,depthWrite:false,toneMapped:false});
   const u={};for(const key of ['sharp','soft','medium','wide','depth'])u[key]={value:null};
-  for(const key of ['nearPlane','farPlane','focusEnd','blurEnd','amount','glow','grade','foreground','contrast'])u[key]={value:0};
+  for(const key of ['nearPlane','farPlane','focusEnd','blurEnd','amount','glow','grade','foreground','contrast','radius'])u[key]={value:0};
+  u.pixel={value:new T.Vector2()};
   mixMat=new T.ShaderMaterial({vertexShader:vertex,fragmentShader:composite,uniforms:u,depthTest:false,depthWrite:false,toneMapped:false});
   screen=new T.Scene();screenCamera=new T.Camera();quad=new T.Mesh(new T.PlaneGeometry(2,2),downMat);quad.frustumCulled=false;screen.add(quad);
   output=new OutputPass();output.renderToScreen=true;
@@ -60,10 +68,10 @@ export function createPipeline(T,renderer,scene,camera){
   }
   if(cfg.blur||cfg.bloom||cfg.grade||cfg.contrast){
    let previous=src;
-   for(const r of pyramid){downMat.uniforms.source.value=previous.texture;downMat.uniforms.pixel.value.set(1/previous.width,1/previous.height);pass(downMat,r);previous=r;}
+   if(cfg.bloom||cfg.contrast)for(const r of pyramid){downMat.uniforms.source.value=previous.texture;downMat.uniforms.pixel.value.set(1/previous.width,1/previous.height);pass(downMat,r);previous=r;}
    const u=mixMat.uniforms;
    u.sharp.value=src.texture;u.soft.value=pyramid[0].texture;u.medium.value=pyramid[1].texture;u.wide.value=pyramid[2].texture;u.depth.value=beauty.depthTexture;
-   u.nearPlane.value=camera.near;u.farPlane.value=camera.far;u.focusEnd.value=cfg.near;u.blurEnd.value=cfg.far;u.amount.value=cfg.blur;u.glow.value=hdr?cfg.bloom:0;u.grade.value=cfg.grade;u.foreground.value=cfg.foreground;u.contrast.value=cfg.contrast;
+   u.nearPlane.value=camera.near;u.farPlane.value=camera.far;u.focusEnd.value=cfg.near;u.blurEnd.value=cfg.far;u.amount.value=cfg.blur;u.glow.value=hdr?cfg.bloom:0;u.grade.value=cfg.grade;u.foreground.value=cfg.foreground;u.contrast.value=cfg.contrast;u.pixel.value.set(1/w,1/h);u.radius.value=cfg.radius*Math.min(1.4,h/720);
    pass(mixMat,combined);src=combined;
   }
   if(cfg.aa){if(!smaa)smaa=new SMAAPass(w,h);if(smaa.areaTexture.image?.complete&&smaa.searchTexture.image?.complete&&smaa.areaTexture.image.naturalWidth&&smaa.searchTexture.image.naturalWidth){smaa.render(renderer,aaTarget,src);src=aaTarget;}}
