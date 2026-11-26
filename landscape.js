@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {levels,trailMask} from './levels.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
@@ -37,10 +38,10 @@ function template(collection,name,h){if(!collection)return null;collection.updat
 function groundPlace(o,x,z,rot=0,s=1,offset=0){o.position.set(x,height(x,z)+offset,z);o.rotation.y=rot;o.scale.setScalar(s);scene.add(o);o.updateMatrixWorld(true);return o;}
 function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad});}
 function trunk(x,z,r){colliders.push({x,z,r});}
-function free(x,z,r=.28){return !colliders.some(c=>'r'in c?Math.hypot(x-c.x,z-c.z)<r+c.r:x+r>c.x0&&x-r<c.x1&&z+r>c.z0&&z-r<c.z1);}
+function free(x,z,r=.28){return !colliders.some(c=>hitsCollider(c,x,z,r));}
 function batch(t,points,shadow=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);});}
 const trees=level.treeSpecies.map(n=>template(forest,n,8)).filter(Boolean);if(!trees.length)throw new Error('Forest collection has no matching trees');
-const treePoints=trees.map(()=>[]);function addTree(x,z,s,i){if(!free(x,z,1.7)||Math.abs(x-level.trail(z))<level.trailWidth+1.9||Math.hypot(x-level.spawn[0],z-level.spawn[1])<2.6)return;treePoints[i%trees.length].push([x,z,s,rnd()*Math.PI*2]);trunk(x,z,.36*s);}
+const treePoints=trees.map(()=>[]),treeFeet=trees.map(t=>trunkFootprint(THREE,t)),treeReplacements=[];function addTree(x,z,s,i){if(!free(x,z,1.7)||Math.abs(x-level.trail(z))<level.trailWidth+1.9||Math.hypot(x-level.spawn[0],z-level.spawn[1])<2.6)return;const j=i%trees.length,a=rnd()*Math.PI*2;treePoints[j].push([x,z,s,a]);treeReplacements.push([colliders.length,treeCollider(treeFeet[j],x,z,s,a)]);trunk(x,z,.36*s);}
 // The opening view is framed by trunks, with the horizon visible over the far ridge.
 if(level.sky==='sunset')for(const [i,p] of [[-5,23], [5.7,21],[-9,14],[9,10],[-6,-6],[8,-10]].entries())addTree(...p,1.0+i%3*.2,i);
 for(let n=0;n<level.trees*6&&treePoints.reduce((a,p)=>a+p.length,0)<level.trees;n++){
@@ -68,6 +69,7 @@ if(level.sky==='sunset'){
  const x=level.trail(-28)+2.4,z=-28;const t=template(palast,'obelisk',6);if(t){groundPlace(t,x,z,.4);aabb(t);const l=new THREE.PointLight(0x56d9c7,38,12,2);l.position.set(x,height(x,z)+1.6,z+1.5);scene.add(l);}
  sign(level.trail(13)+2,13,level.message);
 }
+for(const [index,shape] of treeReplacements)colliders[index]=shape;
 // Choose a collision-free spawn and sample the same terrain triangles as the ground mesh.
 const pos=new THREE.Vector3(level.spawn[0],0,level.spawn[1]);if(!free(pos.x,pos.z)){let found=false;for(let dz=-4;dz<=4&&!found;dz+=.5)for(let dx=-4;dx<=4;dx+=.5)if(free(pos.x+dx,pos.z+dz)){pos.x+=dx;pos.z+=dz;found=true;break;}if(!found)throw new Error('Spawn obstructed');}pos.y=height(pos.x,pos.z)+1.68;
 const keys=new Set(),vel=new THREE.Vector2(),target=new THREE.Vector2();let yaw=level.yaw,pitch=-.04,locked=false,bob=0,notice='',until=0;camera.position.copy(pos);camera.rotation.set(pitch,yaw,0);

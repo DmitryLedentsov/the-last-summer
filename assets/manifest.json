@@ -10,6 +10,62 @@
       "size": 551564
     },
     {
+      "path": "assets/curated/forest/textures/PSX_Bark2_128px.png",
+      "size": 34159
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_Bark3_128px.png",
+      "size": 36807
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_Bark5_128px.png",
+      "size": 34546
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_Bark6_128px.png",
+      "size": 36151
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_Bolder_128px.png",
+      "size": 36464
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_Dandelion_64px.png",
+      "size": 6513
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_Grass_128px.png",
+      "size": 31993
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_PINECone_64px.png",
+      "size": 10508
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_TreeCrown1_128px.png",
+      "size": 49654
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_TreeCrown2_128px.png",
+      "size": 48973
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_TreeCrown3_Tex_128px.png",
+      "size": 50056
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_TreeCrown4_Tex_128px.png",
+      "size": 35445
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_TreeEnd_64px.png",
+      "size": 10149
+    },
+    {
+      "path": "assets/curated/forest/textures/PSX_TreeInside_128px.png",
+      "size": 32481
+    },
+    {
       "path": "assets/curated/ground/PSX_Seamless_ForestDryGround_128px.png",
       "size": 43090
     },
@@ -244,6 +300,90 @@
     {
       "path": "assets/derived/twilight.jpg",
       "size": 65105
+    },
+    {
+      "path": "assets/mindbreak/models.json",
+      "size": 68
+    },
+    {
+      "path": "assets/psyche/AlienBlobCreature.fbx",
+      "size": 787484
+    },
+    {
+      "path": "assets/psyche/CreepyClawTree.fbx",
+      "size": 267372
+    },
+    {
+      "path": "assets/psyche/CrystalLookingTreeThing.fbx",
+      "size": 217532
+    },
+    {
+      "path": "assets/psyche/FungusPod.fbx",
+      "size": 17788
+    },
+    {
+      "path": "assets/psyche/GiantMushroom.fbx",
+      "size": 113916
+    },
+    {
+      "path": "assets/psyche/GiantMushroom002.fbx",
+      "size": 46028
+    },
+    {
+      "path": "assets/psyche/HangingSephlaplop.fbx",
+      "size": 44172
+    },
+    {
+      "path": "assets/psyche/IDontknow.fbx",
+      "size": 179340
+    },
+    {
+      "path": "assets/psyche/Rock001.fbx",
+      "size": 35644
+    },
+    {
+      "path": "assets/psyche/Rock002.fbx",
+      "size": 62988
+    },
+    {
+      "path": "assets/psyche/Rock003.fbx",
+      "size": 128060
+    },
+    {
+      "path": "assets/psyche/RockStickFormation.fbx",
+      "size": 690780
+    },
+    {
+      "path": "assets/psyche/RockStickFormation002.fbx",
+      "size": 387436
+    },
+    {
+      "path": "assets/psyche/RockStickFormation003.fbx",
+      "size": 474076
+    },
+    {
+      "path": "assets/psyche/SomeWeirdStickThing.fbx",
+      "size": 25596
+    },
+    {
+      "path": "assets/psyche/StrangeDoorWay.fbx",
+      "size": 227276
+    },
+    {
+      "path": "assets/psyche/StrangeRockFormation.fbx",
+      "size": 3119228
+    },
+    {
+      "path": "assets/psyche/StrangeTree.fbx",
+      "size": 40780
+    },
+    {
+      "path": "assets/psyche/StrangeTree002.fbx",
+      "size": 198364
+    },
+    {
+      "path": "assets/psyche/WeirdTubeScene.fbx",
+      "size": 385916
     },
     {
       "path": "assets/raw/PS1 Dark Fantasy Horror Game Assets (by Stark Crafts)/PS1_ForestAsset/PS1_NaturAssetCollection.fbx",
