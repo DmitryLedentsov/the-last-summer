@@ -1,4 +1,3 @@
-import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=047';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
@@ -25,7 +24,6 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.style.display = 'block';
 document.body.prepend(renderer.domElement);
 
-const clock = new THREE.Clock();
 const loading = new THREE.LoadingManager();
 loading.setURLModifier(url => {
   if (url.startsWith('blob:') || url.startsWith('data:')) return url;
@@ -39,22 +37,7 @@ const hdrLoader = new RGBELoader(loading);
 const colliders = [];
 const interactions = [];
 
-let pointerLocked = false;
-let touchQualityInitialized=false;
-const touch=createTouchControls({menu:menuEl,onLook:(x,y)=>{if(pointerLocked){player.yaw-=x*.00387;player.pitch=THREE.MathUtils.clamp(player.pitch-y*.00387,-1.45,1.45);}},onAction:name=>{if(name==='pause')pauseGame();else if(name==='interact'){const hit=nearInteraction();if(hit){currentMessage=hit.message;messageUntil=performance.now()+3200;}}}});
-let messageUntil = 0;
-let currentMessage = '';
-let swingTime = 0;
-let swingKick = 0;
-
-const keys = new Set();
-const player = {
-  pos: new THREE.Vector3(0, 1.68, 9),
-  vel: new THREE.Vector2(),
-  yaw: 0,
-  pitch: -0.05,
-  bob: 0,
-};
+let swingTime=0;
 
 camera.rotation.order = 'YXZ';
 
@@ -109,21 +92,8 @@ function addColliderFromObject(object, padding = 0) {
     x1: box3.max.x + padding,
     z0: box3.min.z - padding,
     z1: box3.max.z + padding,
+    top: box3.max.y,
   });
-}
-
-function nearInteraction() {
-  return interactions.find((i) => Math.hypot(i.x - player.pos.x, i.z - player.pos.z) < (i.radius || 2.25));
-}
-
-function pauseGame() {
-  pointerLocked=false;touch.stop();
-  keys.clear();
-  player.vel.set(0, 0);
-  menuEl.hidden = false;
-  dotEl.hidden = true;
-  hintEl.hidden = true;
-  startEl.textContent = 'Продолжить';
 }
 
 function makeFallbackSky() {
@@ -523,128 +493,15 @@ async function main() {
   const particles = new THREE.Points(particleGeo, particleMat);
   scene.add(particles);
 
-  // Validate spawn against every individual collider before enabling controls.
-  if(!walkable(player.pos.x,player.pos.z)){
-    let found=false;
-    for(let z=10;z>=2&&!found;z-=.5)for(let x=-2;x<=2;x+=.5)if(walkable(x,z)){player.pos.set(x,1.68,z);found=true;break;}
-    if(!found)throw new Error('No valid spawn in courtyard');
-  }
-  camera.position.copy(player.pos);camera.rotation.set(player.pitch,player.yaw,0);
-  // Interaction status.
-  const count=[nightHDR,forestCollection,natureCollection,palastCollection,skeletonModel,skullModel,swordModel,houseA].filter(Boolean).length;
-  statusEl.textContent = `Готово · основные ресурсы ${count}/8`; 
-  startEl.disabled = false;
-
-  function walkable(x, z) {
-    if (x < -12.8 || x > 12.8 || z < -12.8 || z > 12.8) return false;
-    for (const c of colliders) {
-      if (x + .25 > c.x0 && x - .25 < c.x1 && z + .25 > c.z0 && z - .25 < c.z1) return false;
-    }
-    return true;
-  }
-
-  document.addEventListener('pointerlockchange', () => {
-    if(touch.active)return;
-    pointerLocked = document.pointerLockElement === renderer.domElement;
-    if (pointerLocked) {
-      menuEl.hidden = true;
-      dotEl.hidden = false;
-    } else {
-      pauseGame();
-    }
-  });
-
-  startEl.addEventListener('click', async () => {
-    if(touch.selected){touch.start();if(!touchQualityInitialized){applyTouchQuality(renderer,scene);touchQualityInitialized=true;}pointerLocked=true;menuEl.hidden=true;dotEl.hidden=false;return;}
-    try {
-      await renderer.domElement.requestPointerLock();
-    } catch (error) {
-      console.warn(error);
-      statusEl.textContent = 'Браузер не дал захватить мышь.';
-    }
-  });
-
-  document.addEventListener('mousemove', (event) => {
-    if (!pointerLocked||touch.active) return;
-    player.yaw -= event.movementX * 0.00215;
-    player.pitch = THREE.MathUtils.clamp(player.pitch - event.movementY * 0.00215, -1.45, 1.45);
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (!pointerLocked) return;
-    keys.add(event.code);
-    if (event.code === 'KeyE' && !event.repeat) {
-      const hit = nearInteraction();
-      if (hit) {
-        currentMessage = hit.message;
-        messageUntil = performance.now() + 3200;
-      }
-    }
-  });
-  document.addEventListener('keyup', (event) => keys.delete(event.code));
-  window.addEventListener('blur', () => { keys.clear(); player.vel.set(0, 0); if(touch.active)pauseGame();else if(document.pointerLockElement)document.exitPointerLock(); });
-
-  function animate() {
-    requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.05);
-    const now = performance.now();
-
-    if (pointerLocked) {
-      const forward = Number(keys.has('KeyW')) - Number(keys.has('KeyS'));
-      const right = Number(keys.has('KeyD')) - Number(keys.has('KeyA'));
-      const {f,r}=mergeMotion(forward,right,touch.active?touch.state:null);
-      const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') || (touch.active&&touch.state.sprint) ? 4.6 : 2.6;
-      const vx = (-Math.sin(player.yaw) * f + Math.cos(player.yaw) * r) * speed;
-      const vz = (-Math.cos(player.yaw) * f - Math.sin(player.yaw) * r) * speed;
-      player.vel.lerp(new THREE.Vector2(vx, vz), 1 - Math.exp(-10 * dt));
-      const nx = player.pos.x + player.vel.x * dt;
-      const nz = player.pos.z + player.vel.y * dt;
-      if (walkable(nx, player.pos.z)) player.pos.x = nx; else player.vel.x = 0;
-      if (walkable(player.pos.x, nz)) player.pos.z = nz; else player.vel.y = 0;
-
-      player.bob += player.vel.length() * dt * 3.4;
-      camera.position.set(player.pos.x, 1.68 + Math.sin(player.bob) * Math.min(0.03, player.vel.length() * 0.008), player.pos.z);
-      camera.rotation.set(player.pitch, player.yaw, 0);
-
-      const focus = nearInteraction();
-      if (now < messageUntil) {
-        hintEl.hidden = false;
-        hintEl.textContent = currentMessage;
-      } else if (focus) {
-        hintEl.hidden = false;
-        hintEl.textContent = focus.prompt;
-      } else {
-        hintEl.hidden = true;
-      }
-    }
-
+  function updateEnvironment(dt){
     swingTime += dt;
-    swingKick *= Math.exp(-dt * 0.7);
     runeDisc.userData.glow.rotation.z += dt * 0.33;
     runeDisc.userData.glow.material.opacity = 0.55 + Math.sin(swingTime * 2.0) * 0.18;
     runeDisc.userData.light.intensity = 24 + Math.sin(swingTime * 2.7) * 5;
     trunkGlow.intensity = 40 + Math.sin(swingTime * 1.8) * 6;
     particles.rotation.y += dt * 0.015;
-
-    renderer.render(scene, camera);
   }
-
-  animate();
+  scene.updateMatrixWorld(true);
+  return {THREE,scene,camera,renderer,level:{title:'Забытый двор',limit:12.8,spawn:[0,9],yaw:0},height:()=>.06,colliders,terrain:courtyard,treeBatches:[],sun:moon,interactions,updateEnvironment};
 }
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-document.addEventListener('keydown', (event) => {
-  if (event.code === 'Escape' && pointerLocked) {
-    if(touch.active)pauseGame();else if(document.pointerLockElement)document.exitPointerLock();
-  }
-});
-
-main().catch((error) => {
-  console.error(error);
-  statusEl.textContent = 'Ошибка подготовки сцены. См. консоль.';
-});
+export const world=await main();

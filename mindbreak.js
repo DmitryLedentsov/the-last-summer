@@ -1,10 +1,9 @@
-import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=047';
 import * as THREE from 'three';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
-import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
+import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
 // Port of the repository's Mindbreak scene, master 283799f2e8bc2ff28484f7f4203afa9d43847bfe.
 const $=s=>document.querySelector(s), menu=$('#menu'), start=$('#start'), hint=$('#hint'), dot=$('#dot'), status=$('#status');
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,360);
@@ -59,7 +58,8 @@ const reserve=(x,z,r)=>colliders.push({x,z,r});
 const free=(x,z,r=.35)=>!colliders.some(c=>hitsCollider(c,x,z,r));
 function place(o,x,z,s=1,a=0,y=0){if(!o)return null;o.position.set(x,height(x,z)+y,z);o.scale.setScalar(s);o.rotation.y=a;scene.add(o);o.updateMatrixWorld(true);return o;}
 function mesh(g,m,parent,x=0,y=0,z=0,shadow=true){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=shadow;o.receiveShadow=true;parent.add(o);return o;}
-function batch(template,list,shadow=false){if(!template||!list.length)return;template.updateMatrixWorld(true);const dummy=new THREE.Object3D();template.traverse(n=>{if(!n.isMesh||n.isSkinnedMesh)return;const geom=n.geometry.clone().applyMatrix4(n.matrixWorld),o=new THREE.InstancedMesh(geom,n.material,list.length);list.forEach(([x,z,s,r],i)=>{dummy.position.set(x,height(x,z)-.015,z);dummy.scale.setScalar(s);dummy.rotation.set(0,r,0);dummy.updateMatrix();o.setMatrixAt(i,dummy.matrix);});o.instanceMatrix.needsUpdate=true;o.castShadow=shadow;o.receiveShadow=true;o.computeBoundingSphere();scene.add(o);});}
+const treeBatches=[];
+function batch(template,list,shadow=false,isTree=false){if(!template||!list.length)return;template.updateMatrixWorld(true);const dummy=new THREE.Object3D();template.traverse(n=>{if(!n.isMesh||n.isSkinnedMesh)return;const geom=n.geometry.clone().applyMatrix4(n.matrixWorld),o=new THREE.InstancedMesh(geom,n.material,list.length);list.forEach(([x,z,s,r],i)=>{dummy.position.set(x,height(x,z)-.015,z);dummy.scale.setScalar(s);dummy.rotation.set(0,r,0);dummy.updateMatrix();o.setMatrixAt(i,dummy.matrix);});o.instanceMatrix.needsUpdate=true;o.castShadow=shadow;o.receiveShadow=true;o.computeBoundingSphere();scene.add(o);if(isTree)treeBatches.push({mesh:o,points:list});});}
 function material(color,map=null,extra={}){return new THREE.MeshStandardMaterial({color,map,roughness:1,...extra});}
 // Original 128px texture generator and palettes from GitHub Mindbreak.
 function pixelTex(palette){const cv=document.createElement('canvas');cv.width=cv.height=128;const ctx=cv.getContext('2d'),data=ctx.createImageData(128,128);
@@ -115,11 +115,11 @@ const clearZone=(x,z)=>Math.abs(x-trail(z))>3&&loopDist(x,z)>2.6&&Math.hypot(x,z
 const clusters=[[-21,32,13],[24,52,11],[-34,-3,15],[34,-8,14],[19,-47,13],[-62,-32,13],[57,-44,13],[-51,56,11],[65,6,10]];
 for(const [cx,cz,r] of clusters){for(let i=0;i<10;i++){const a=rnd()*TAU,d=Math.sqrt(rnd())*r,x=cx+Math.cos(a)*d,z=cz+Math.sin(a)*d;if(clearZone(x,z)&&Math.abs(x)<83&&Math.abs(z)<83)fungusAt(x,z,range(.55,1.85),Math.floor(rnd()*fungi.length));}}
 fungi.forEach((t,i)=>batch(t,fungusLists[i],true));
-const treeTypes=[...realTrees,...warped],treeLists=treeTypes.map(()=>[]),treeFeet=treeTypes.map(t=>trunkFootprint(THREE,t));
+const treeTypes=[...realTrees,...warped],treeLists=treeTypes.map(()=>[]),treeFeet=treeTypes.map(t=>collectWoodTriangles(THREE,t));
 for(let i=0;i<1100;i++){if(treeLists.reduce((n,a)=>n+a.length,0)>=172)break;const x=range(-88,88),z=range(-88,88);if(!clearZone(x,z)||!free(x,z,1.7))continue;
  const t=(z>20&&realTrees.length&&rnd()<.67)?Math.floor(rnd()*realTrees.length):realTrees.length+Math.floor(rnd()*warped.length);
- const s=t<realTrees.length?range(.8,1.6):range(.8,2.05),a=rnd()*TAU;treeLists[t].push([x,z,s,a]);colliders.push(treeCollider(treeFeet[t],x,z,s,a));}
-treeTypes.forEach((t,i)=>batch(t,treeLists[i],true));
+ const s=t<realTrees.length?range(.8,1.6):range(.8,2.05),a=rnd()*TAU;treeLists[t].push([x,z,s,a]);colliders.push(combatTreeCollider(treeFeet[t],x,z,s,a,height(x,z)-.015));}
+treeTypes.forEach((t,i)=>batch(t,treeLists[i],true,true));
 const plantLists=plantTemplates.map(()=>[]),rockList=[];
 for(let i=0;i<18500&&plantLists.reduce((n,a)=>n+a.length,0)<8000;i++){const x=range(-88,88),z=range(-88,88);if(!clearZone(x,z)||!free(x,z,.08)||Math.sin(x*.22)*Math.cos(z*.18)<-.72)continue;if(plantLists.length){const n=Math.floor(rnd()*plantLists.length);plantLists[n].push([x,z,range(.55,1.5),rnd()*TAU]);}else break;}
 plantTemplates.forEach((t,i)=>batch(t,plantLists[i]));
@@ -129,24 +129,10 @@ extraProps.forEach((o,i)=>{const x=trail(-38)+5+i%3*5,z=-38-Math.floor(i/3)*6;if
 const count=750, pp=new Float32Array(count*3), pc=new Float32Array(count*3);const particleColor=new THREE.Color();
 for(let i=0;i<count;i++){const x=range(-88,88),z=range(-88,88);pp.set([x,height(x,z)+range(.5,12),z],i*3);particleColor.set(i%4===0?0xfbd694:0xc9a8ff);pc.set([particleColor.r,particleColor.g,particleColor.b],i*3);}
 const particleGeo=new THREE.BufferGeometry();particleGeo.setAttribute('position',new THREE.BufferAttribute(pp,3));particleGeo.setAttribute('color',new THREE.BufferAttribute(pc,3));const dust=new THREE.Points(particleGeo,new THREE.PointsMaterial({size:.085,vertexColors:true,transparent:true,opacity:.7,depthWrite:false,blending:THREE.AdditiveBlending}));scene.add(dust);
-const pos=new THREE.Vector3(spawn[0],height(...spawn)+1.68,spawn[1]);const keys=new Set(),vel=new THREE.Vector2(),target=new THREE.Vector2();let yaw=0,pitch=-.035,locked=false,bob=0,notice='',until=0;camera.position.copy(pos);camera.rotation.set(pitch,yaw,0);
-function nearby(){return points.filter(v=>Math.hypot(v.x-pos.x,v.z-pos.z)<(v.radius||3)).sort((a,b)=>Math.hypot(a.x-pos.x,a.z-pos.z)-Math.hypot(b.x-pos.x,b.z-pos.z))[0];}
-function walkable(x,z){return Math.abs(x)<87&&Math.abs(z)<87&&free(x,z,.31)&&Math.abs(height(x,z)-height(pos.x,pos.z))<Math.hypot(x-pos.x,z-pos.z)*1.45+.035;}
-function pause(){locked=false;touch.stop();keys.clear();vel.set(0,0);menu.hidden=false;hint.hidden=true;dot.hidden=true;start.textContent='Продолжить';}
-start.onclick=()=>{if(touch.selected){touch.start();if(!touchQualityInitialized){applyTouchQuality(renderer,scene);touchQualityInitialized=true;}locked=true;menu.hidden=true;dot.hidden=false;return;}try{const p=renderer.domElement.requestPointerLock();p?.catch?.(()=>status.textContent='Не удалось захватить мышь.');}catch{status.textContent='Захват мыши недоступен.';}};
-document.addEventListener('pointerlockchange',()=>{if(touch.active)return;locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;dot.hidden=false;}else pause();});document.addEventListener('pointerlockerror',()=>status.textContent='Браузер не разрешил захват мыши.');
-let touchQualityInitialized=false;
- function interact(){const n=nearby();if(n){notice=n.message;until=performance.now()+4000;}}
- function lookBy(x,y){if(locked){yaw-=x*.0021;pitch=THREE.MathUtils.clamp(pitch-y*.0021,-1.48,1.48);}}
- const touch=createTouchControls({menu,onLook:(x,y)=>lookBy(x*1.8,y*1.8),onAction:name=>{if(name==='pause')pause();else if(name==='interact')interact();}});
- document.addEventListener('mousemove',e=>{if(!touch.active)lookBy(e.movementX||0,e.movementY||0);});
-document.addEventListener('keydown',e=>{if(!locked)return;keys.add(e.code);if(['KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyE'&&!e.repeat)interact();if(e.code==='Escape'&&touch.active)pause();});
-document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();vel.set(0,0);if(touch.active)pause();else if(document.pointerLockElement)document.exitPointerLock();});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-status.textContent='Готово · WASD, мышь, Shift, E, Esc';start.disabled=false;
-let last=performance.now();
-renderer.setAnimationLoop(now=>{const dt=Math.min(.05,(now-last)/1000);last=now;
- if(locked){const {f,r}=mergeMotion(Number(keys.has('KeyW'))-Number(keys.has('KeyS')),Number(keys.has('KeyD'))-Number(keys.has('KeyA')),touch.active?touch.state:null);const speed=keys.has('ShiftLeft')||keys.has('ShiftRight')||(touch.active&&touch.state.sprint)?5.5:3.1;target.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*speed,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*speed);vel.lerp(target,1-Math.exp(-12*dt));const x=pos.x+vel.x*dt,z=pos.z+vel.y*dt;if(walkable(x,pos.z))pos.x=x;else vel.x=0;if(walkable(pos.x,z))pos.z=z;else vel.y=0;pos.y=height(pos.x,pos.z)+1.68;bob+=vel.length()*dt*3.1;camera.position.set(pos.x,pos.y+Math.sin(bob)*Math.min(.026,vel.length()*.006),pos.z);camera.rotation.set(pitch,yaw,0);const v=nearby();hint.hidden=now>=until&&!v;hint.textContent=now<until?notice:v?.prompt||'';}
+function updateEnvironment(dt,now){
  sky.position.copy(camera.position);core.rotation.y+=dt*.13;core.position.y=3.6+Math.sin(now*.0012)*.25;
  for(const a of animated){a.o.rotation[a.axis]+=dt*a.speed;if(a.base!==undefined)a.o.position.y=a.base+Math.sin(now*.0008+a.phase)*a.amp;}
- for(const a of lights)a.l.intensity=a.power*(.94+.06*Math.sin(now*.0011+a.phase));dust.position.y=Math.sin(now*.00027)*.35;renderer.render(scene,camera);
-});
+ for(const a of lights)a.l.intensity=a.power*(.94+.06*Math.sin(now*.0011+a.phase));dust.position.y=Math.sin(now*.00027)*.35;
+}
+scene.updateMatrixWorld(true);
+export const world={THREE,scene,camera,renderer,level:{title:'Распад сознания',limit:87,spawn,yaw:0},height,free,colliders,terrain:floor,treeBatches,sun,interactions:points,updateEnvironment};

@@ -1,11 +1,10 @@
-import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=047';
 import * as THREE from 'three';
-import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
+import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {levels,pathWeight} from './panel_levels.js?v=038';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
 
-const id=new URLSearchParams(location.search).get('level');
+const id=new URLSearchParams(location.search).get('map')||new URLSearchParams(location.search).get('level');
 const level=Object.hasOwn(levels,id)?levels[id]:levels.yard;
 const $=s=>document.querySelector(s), menu=$('#menu'), start=$('#start'), status=$('#status'), hint=$('#hint'), dot=$('#dot');
 $('#title').textContent=level.title;$('#subtitle').textContent=level.subtitle;document.title=level.title+' — Последнее лето';
@@ -55,13 +54,14 @@ function prepare(obj){obj.traverse(n=>{if(!n.isMesh)return;n.castShadow=true;n.r
 function normalized(o,h,correction=0){const wrapper=new THREE.Group(),inner=new THREE.Group(),pivot=new THREE.Group();pivot.add(o);pivot.rotation.y=correction;inner.add(pivot);wrapper.add(inner);wrapper.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(pivot,true),s=h/Math.max(.001,b.max.y-b.min.y);inner.scale.setScalar(s);inner.position.set(-(b.min.x+b.max.x)*s/2,-b.min.y*s,-(b.min.z+b.max.z)*s/2);wrapper.updateMatrixWorld(true);return wrapper;}
 function template(collection,name,h){if(!collection)return null;collection.updateMatrixWorld(true);let found;collection.traverse(n=>{if(n.isMesh&&n.name.trim().toLowerCase()===name.toLowerCase())found=n;});if(!found){console.warn('Missing model',name);return null;}const c=found.clone();found.matrixWorld.decompose(c.position,c.quaternion,c.scale);return normalized(prepare(c),h);}
 function groundPlace(o,x,z,rot=0,s=1,offset=0){o.position.set(x,height(x,z)+offset,z);o.rotation.y=rot;o.scale.setScalar(s);scene.add(o);o.updateMatrixWorld(true);return o;}
-function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o,true);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad});}
+function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o,true);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad,top:b.max.y});}
 function trunk(x,z,r){colliders.push({x,z,r});}
 function free(x,z,r=.28){return !colliders.some(c=>hitsCollider(c,x,z,r));}
 function at(x,z,y=0){return new THREE.Vector3(x,height(x,z)+y,z);}
 function box(w,h,d,m,x,y,z,parent=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
 function beam(a,b,r,m,parent=scene){const v=new THREE.Vector3().subVectors(b,a),o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,v.length(),7),m);o.position.copy(a).add(b).multiplyScalar(.5);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
-function batch(t,points,shadow=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);});}
+const treeBatches=[];
+function batch(t,points,shadow=false,isTree=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
 function labelTexture(text,sub=''){const canvas=document.createElement('canvas');canvas.width=256;canvas.height=128;const c=canvas.getContext('2d');c.fillStyle='#c6c5ab';c.fillRect(0,0,256,128);c.strokeStyle='#5d6258';c.lineWidth=5;c.strokeRect(6,6,244,116);c.fillStyle='#35463e';c.textAlign='center';c.font='bold 28px monospace';c.fillText(text,128,54);c.font='18px monospace';c.fillText(sub,128,90);const t=new THREE.CanvasTexture(canvas);return tune(t);}
 
 const stone=new THREE.MeshStandardMaterial({color:0xa2a097,map:stoneTex||null,roughness:1});
@@ -151,8 +151,8 @@ if(level.sceneType==='yard'){
 }
 
 const trees=['PSX_Tree1','PSX_Tree2','PSX_Tree3','PSX_Tree4'].map(n=>template(forest,n,8));
-const treePoints=trees.map(()=>[]),treeCenters=[],treeFeet=trees.map(t=>trunkFootprint(THREE,t)),treeReplacements=[];
-function plantTree(x,z,i,s){if(!trees[i]||level.reserved(x,z)||level.distance(x,z)<2.5||!free(x,z,1.0)||Math.hypot(x-level.spawn[0],z-level.spawn[1])<4||treeCenters.some(p=>Math.hypot(x-p[0],z-p[1])<2.4))return false;const a=rnd()*Math.PI*2;treePoints[i].push([x,z,s,a]);treeCenters.push([x,z]);treeReplacements.push([colliders.length,treeCollider(treeFeet[i],x,z,s,a)]);trunk(x,z,.34*s);return true;}
+const treePoints=trees.map(()=>[]),treeCenters=[],treeFeet=trees.map(t=>collectWoodTriangles(THREE,t)),treeReplacements=[];
+function plantTree(x,z,i,s){if(!trees[i]||level.reserved(x,z)||level.distance(x,z)<2.5||!free(x,z,1.0)||Math.hypot(x-level.spawn[0],z-level.spawn[1])<4||treeCenters.some(p=>Math.hypot(x-p[0],z-p[1])<2.4))return false;const a=rnd()*Math.PI*2;treePoints[i].push([x,z,s,a]);treeCenters.push([x,z]);treeReplacements.push([colliders.length,combatTreeCollider(treeFeet[i],x,z,s,a,height(x,z)-.025)]);trunk(x,z,.34*s);return true;}
 const framing=level.sceneType==='yard'?[[-7,45,1,.8],[6,39,0,.75],[-5,18,2,.82],[9,-6,3,.9],[-26,-49,1,.86],[27,43,0,.8],[-21,13,2,.9],[-20,-14,1,.8]]:[[-8,27,2,.8],[18,32,0,.76],[-20,-2,3,.82],[16,-42,1,.88],[-41,17,2,.78],[61,-48,0,.83]];
 for(const [x,z,i,s] of framing)plantTree(x,z,i,s);
 for(let n=0;n<level.trees*50&&treeCenters.length<level.trees;n++){
@@ -160,7 +160,7 @@ for(let n=0;n<level.trees*50&&treeCenters.length<level.trees;n++){
   if(rnd()>Math.pow(level.treeZone(x,z),1.65))continue;
   const i=Math.floor(rnd()*trees.length);plantTree(x,z,i,.7+rnd()*.7);
 }
-trees.forEach((t,i)=>batch(t,treePoints[i],true));
+trees.forEach((t,i)=>batch(t,treePoints[i],true,true));
 for(const [idx,shape] of treeReplacements)colliders[idx]=shape;
 
 const plantTemplates={
@@ -209,20 +209,5 @@ function batchStaticProps(){
  for(const list of groups.values()){if(list.length<3)continue;const first=list[0].o,g=first.geometry.type==='BoxGeometry'?new THREE.BoxGeometry(1,1,1):new THREE.CylinderGeometry(1,1,1,first.geometry.parameters.radialSegments); const m=new THREE.InstancedMesh(g,first.material,list.length),matrix=new THREE.Matrix4(); list.forEach(({o,scale},i)=>{matrix.copy(o.matrixWorld).scale(scale);m.setMatrixAt(i,matrix);o.removeFromParent();o.geometry.dispose();});m.castShadow=first.castShadow;m.receiveShadow=first.receiveShadow;m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();scene.add(m);} }
 batchStaticProps();
 
-const pos=new THREE.Vector3(level.spawn[0],0,level.spawn[1]);if(!free(pos.x,pos.z)){let found=false;for(let dz=-4;dz<=4&&!found;dz+=.5)for(let dx=-4;dx<=4;dx+=.5)if(free(pos.x+dx,pos.z+dz)){pos.x+=dx;pos.z+=dz;found=true;break;}if(!found)throw new Error('Spawn obstructed');}pos.y=height(pos.x,pos.z)+1.68;
-const keys=new Set(),vel=new THREE.Vector2(),target=new THREE.Vector2();let yaw=level.yaw,pitch=-.04,locked=false,bob=0,notice='',until=0;camera.position.copy(pos);camera.rotation.set(pitch,yaw,0);
-function pause(){locked=false;touch.stop();keys.clear();vel.set(0,0);menu.hidden=false;dot.hidden=true;hint.hidden=true;start.textContent='Продолжить';}
-function nearby(){return interactions.filter(i=>Math.hypot(i.x-pos.x,i.z-pos.z)<2.8).sort((a,b)=>Math.hypot(a.x-pos.x,a.z-pos.z)-Math.hypot(b.x-pos.x,b.z-pos.z))[0];}
-function walkable(x,z){if(Math.abs(x)>level.limit||Math.abs(z)>level.limit||!free(x,z))return false;const d=Math.hypot(x-pos.x,z-pos.z);return Math.abs(height(x,z)-height(pos.x,pos.z))<=d*1.5+.2;}
-start.onclick=()=>{if(touch.selected){touch.start();if(!touchQualityInitialized){applyTouchQuality(renderer,scene);touchQualityInitialized=true;}locked=true;menu.hidden=true;dot.hidden=false;return;}try{const p=renderer.domElement.requestPointerLock();p?.catch?.(()=>{status.textContent='Не удалось захватить мышь.';});}catch{status.textContent='Захват мыши недоступен.';}};
-document.addEventListener('pointerlockchange',()=>{if(touch.active)return;locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;dot.hidden=false;}else pause();});
-document.addEventListener('pointerlockerror',()=>status.textContent='Браузер не разрешил захват мыши. Нажми ещё раз.');
-let touchQualityInitialized=false;
- function interact(){const n=nearby();if(n){notice=n.message;until=performance.now()+3600;}}
- function lookBy(x,y){if(locked){yaw-=x*.0021;pitch=THREE.MathUtils.clamp(pitch-y*.0021,-1.48,1.48);}}
- const touch=createTouchControls({menu,onLook:(x,y)=>lookBy(x*1.8,y*1.8),onAction:name=>{if(name==='pause')pause();else if(name==='interact')interact();}});
- document.addEventListener('mousemove',e=>{if(!touch.active)lookBy(e.movementX||0,e.movementY||0);});
-document.addEventListener('keydown',e=>{if(!locked)return;keys.add(e.code);if(['KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyE'&&!e.repeat)interact();if(e.code==='Escape'&&touch.active)pause();});
-document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();vel.set(0,0);if(touch.active)pause();else if(document.pointerLockElement)document.exitPointerLock();});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-status.textContent=failures.length?'Готово · часть дополнительных ресурсов не загрузилась':'Готово · WASD, мышь, Shift, E, Esc';start.disabled=false;
-let last=performance.now();renderer.setAnimationLoop(now=>{const dt=Math.min(.05,(now-last)/1000);last=now;if(locked){const {f,r}=mergeMotion(Number(keys.has('KeyW'))-Number(keys.has('KeyS')),Number(keys.has('KeyD'))-Number(keys.has('KeyA')),touch.active?touch.state:null);const speed=keys.has('ShiftLeft')||keys.has('ShiftRight')||(touch.active&&touch.state.sprint)?4.8:2.7;target.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*speed,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*speed);vel.lerp(target,1-Math.exp(-12*dt));const x=pos.x+vel.x*dt,z=pos.z+vel.y*dt;if(walkable(x,pos.z))pos.x=x;else vel.x=0;if(walkable(pos.x,z))pos.z=z;else vel.y=0;pos.y=height(pos.x,pos.z)+1.68;bob+=vel.length()*dt*3.25;camera.position.set(pos.x,pos.y+Math.sin(bob)*Math.min(.026,vel.length()*.007),pos.z);camera.rotation.set(pitch,yaw,0);const n=nearby();hint.hidden=now>=until&&!n;hint.textContent=now<until?notice:n?.prompt||'';}renderer.render(scene,camera);});
+scene.updateMatrixWorld(true);
+export const world={THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth,roadTex],interactions};

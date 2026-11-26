@@ -1,11 +1,10 @@
-import {createTouchControls,mergeMotion,applyTouchQuality} from './touch_controls.js?v=047';
 import * as THREE from 'three';
-import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
+import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {levels,trailMask} from './levels.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
 
-const id=new URLSearchParams(location.search).get('level');
+const id=new URLSearchParams(location.search).get('map')||new URLSearchParams(location.search).get('level');
 const level=Object.hasOwn(levels,id)?levels[id]:levels.sunset;
 const $=s=>document.querySelector(s), menu=$('#menu'), start=$('#start'), status=$('#status'), hint=$('#hint'), dot=$('#dot');
 $('#title').textContent=level.title;$('#subtitle').textContent=level.subtitle;document.title=level.title+' — Последнее лето';
@@ -37,18 +36,19 @@ function prepare(obj){obj.traverse(n=>{if(!n.isMesh)return;n.castShadow=true;n.r
 function normalized(o,h){const wrapper=new THREE.Group(),inner=new THREE.Group();inner.add(o);wrapper.add(inner);wrapper.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(o),s=h/Math.max(.001,b.max.y-b.min.y);inner.scale.setScalar(s);inner.position.set(-(b.min.x+b.max.x)*s/2,-b.min.y*s,-(b.min.z+b.max.z)*s/2);wrapper.updateMatrixWorld(true);return wrapper;}
 function template(collection,name,h){if(!collection)return null;collection.updateMatrixWorld(true);let found;collection.traverse(n=>{if(n.isMesh&&n.name.trim().toLowerCase()===name.toLowerCase())found=n;});if(!found){console.warn('Missing model',name);return null;}const c=found.clone();found.matrixWorld.decompose(c.position,c.quaternion,c.scale);return normalized(prepare(c),h);}
 function groundPlace(o,x,z,rot=0,s=1,offset=0){o.position.set(x,height(x,z)+offset,z);o.rotation.y=rot;o.scale.setScalar(s);scene.add(o);o.updateMatrixWorld(true);return o;}
-function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad});}
+function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad,top:b.max.y});}
 function trunk(x,z,r){colliders.push({x,z,r});}
 function free(x,z,r=.28){return !colliders.some(c=>hitsCollider(c,x,z,r));}
-function batch(t,points,shadow=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);});}
+const treeBatches=[];
+function batch(t,points,shadow=false,isTree=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
 const trees=level.treeSpecies.map(n=>template(forest,n,8)).filter(Boolean);if(!trees.length)throw new Error('Forest collection has no matching trees');
-const treePoints=trees.map(()=>[]),treeFeet=trees.map(t=>trunkFootprint(THREE,t)),treeReplacements=[];function addTree(x,z,s,i){if(!free(x,z,1.7)||Math.abs(x-level.trail(z))<level.trailWidth+1.9||Math.hypot(x-level.spawn[0],z-level.spawn[1])<2.6)return;const j=i%trees.length,a=rnd()*Math.PI*2;treePoints[j].push([x,z,s,a]);treeReplacements.push([colliders.length,treeCollider(treeFeet[j],x,z,s,a)]);trunk(x,z,.36*s);}
+const treePoints=trees.map(()=>[]),treeFeet=trees.map(t=>collectWoodTriangles(THREE,t)),treeReplacements=[];function addTree(x,z,s,i){if(!free(x,z,1.7)||Math.abs(x-level.trail(z))<level.trailWidth+1.9||Math.hypot(x-level.spawn[0],z-level.spawn[1])<2.6)return;const j=i%trees.length,a=rnd()*Math.PI*2;treePoints[j].push([x,z,s,a]);treeReplacements.push([colliders.length,combatTreeCollider(treeFeet[j],x,z,s,a,height(x,z)-.025)]);trunk(x,z,.36*s);}
 // The opening view is framed by trunks, with the horizon visible over the far ridge.
 if(level.sky==='sunset')for(const [i,p] of [[-5,23], [5.7,21],[-9,14],[9,10],[-6,-6],[8,-10]].entries())addTree(...p,1.0+i%3*.2,i);
 for(let n=0;n<level.trees*6&&treePoints.reduce((a,p)=>a+p.length,0)<level.trees;n++){
  const x=(rnd()-.5)*(level.size-4),z=(rnd()-.5)*(level.size-4);if(level.sky==='sunset'&&z<-23&&Math.abs(x)<12)continue;if(level.sky==='mist'&&Math.abs(x)<13&&z<-5&&z>-26)continue;addTree(x,z,.7+rnd()*.8,n);
 }
-trees.forEach((t,i)=>batch(t,treePoints[i],true));
+trees.forEach((t,i)=>batch(t,treePoints[i],true,true));
 const grassT=template(forest,'PSX_Grass',.43), flowers=template(forest,level.flowers,.68), reed=template(forest,'PSX_Reed',.65), rocks=template(forest,'PSX_Rock',.65), bush=template(nature,'Bush',1.2), trunkT=template(forest,'PSX_Treetrunk',1.1);
 function scatter(t,count,min,max,condition,shadow=false){const points=[];for(let n=0;n<count*4&&points.length<count;n++){const x=(rnd()-.5)*(level.size-5),z=(rnd()-.5)*(level.size-5);if(condition(x,z)&&free(x,z,.12))points.push([x,z,min+rnd()*(max-min),rnd()*Math.PI*2]);}batch(t,points,shadow);}
 const offPath=(x,z)=>trailMask(level,x,z)<.16;
@@ -71,20 +71,5 @@ if(level.sky==='sunset'){
  sign(level.trail(13)+2,13,level.message);
 }
 for(const [index,shape] of treeReplacements)colliders[index]=shape;
-// Choose a collision-free spawn and sample the same terrain triangles as the ground mesh.
-const pos=new THREE.Vector3(level.spawn[0],0,level.spawn[1]);if(!free(pos.x,pos.z)){let found=false;for(let dz=-4;dz<=4&&!found;dz+=.5)for(let dx=-4;dx<=4;dx+=.5)if(free(pos.x+dx,pos.z+dz)){pos.x+=dx;pos.z+=dz;found=true;break;}if(!found)throw new Error('Spawn obstructed');}pos.y=height(pos.x,pos.z)+1.68;
-const keys=new Set(),vel=new THREE.Vector2(),target=new THREE.Vector2();let yaw=level.yaw,pitch=-.04,locked=false,bob=0,notice='',until=0;camera.position.copy(pos);camera.rotation.set(pitch,yaw,0);
-function pause(){locked=false;touch.stop();keys.clear();vel.set(0,0);menu.hidden=false;dot.hidden=true;hint.hidden=true;start.textContent='Продолжить';}
-function nearby(){return interactions.filter(i=>Math.hypot(i.x-pos.x,i.z-pos.z)<2.6).sort((a,b)=>Math.hypot(a.x-pos.x,a.z-pos.z)-Math.hypot(b.x-pos.x,b.z-pos.z))[0];}
-function walkable(x,z){if(Math.abs(x)>level.limit||Math.abs(z)>level.limit||!free(x,z))return false;const d=Math.hypot(x-pos.x,z-pos.z);return Math.abs(height(x,z)-height(pos.x,pos.z))<=d*1.5+.035;}
-start.onclick=()=>{if(touch.selected){touch.start();if(!touchQualityInitialized){applyTouchQuality(renderer,scene);touchQualityInitialized=true;}locked=true;menu.hidden=true;dot.hidden=false;return;}try{const p=renderer.domElement.requestPointerLock();p?.catch?.(()=>{status.textContent='Не удалось захватить мышь.';});}catch{status.textContent='Захват мыши недоступен.';}};
-document.addEventListener('pointerlockchange',()=>{if(touch.active)return;locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;dot.hidden=false;}else pause();});
-document.addEventListener('pointerlockerror',()=>status.textContent='Браузер не разрешил захват мыши. Нажми ещё раз.');
-let touchQualityInitialized=false;
- function interact(){const n=nearby();if(n){notice=n.message;until=performance.now()+3600;}}
- function lookBy(x,y){if(locked){yaw-=x*.0021;pitch=THREE.MathUtils.clamp(pitch-y*.0021,-1.48,1.48);}}
- const touch=createTouchControls({menu,onLook:(x,y)=>lookBy(x*1.8,y*1.8),onAction:name=>{if(name==='pause')pause();else if(name==='interact')interact();}});
- document.addEventListener('mousemove',e=>{if(!touch.active)lookBy(e.movementX||0,e.movementY||0);});
-document.addEventListener('keydown',e=>{if(!locked)return;keys.add(e.code);if(['KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyE'&&!e.repeat)interact();if(e.code==='Escape'&&touch.active)pause();});document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();vel.set(0,0);if(touch.active)pause();else if(document.pointerLockElement)document.exitPointerLock();});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-status.textContent=failures.length?'Готово · не загружены некоторые дополнительные ресурсы':'Готово · WASD, мышь, Shift, E, Esc';start.disabled=false;
-let last=performance.now();renderer.setAnimationLoop(now=>{const dt=Math.min(.05,(now-last)/1000);last=now;if(locked){const {f,r}=mergeMotion(Number(keys.has('KeyW'))-Number(keys.has('KeyS')),Number(keys.has('KeyD'))-Number(keys.has('KeyA')),touch.active?touch.state:null);const speed=keys.has('ShiftLeft')||keys.has('ShiftRight')||(touch.active&&touch.state.sprint)?4.8:2.7;target.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*speed,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*speed);vel.lerp(target,1-Math.exp(-12*dt));const x=pos.x+vel.x*dt,z=pos.z+vel.y*dt;if(walkable(x,pos.z))pos.x=x;else vel.x=0;if(walkable(pos.x,z))pos.z=z;else vel.y=0;pos.y=height(pos.x,pos.z)+1.68;bob+=vel.length()*dt*3.3;camera.position.set(pos.x,pos.y+Math.sin(bob)*Math.min(.027,vel.length()*.007),pos.z);camera.rotation.set(pitch,yaw,0);const n=nearby();hint.hidden=now>=until&&!n;hint.textContent=now<until?notice:n?.prompt||'';}renderer.render(scene,camera);});
+scene.updateMatrixWorld(true);
+export const world={THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth],interactions};

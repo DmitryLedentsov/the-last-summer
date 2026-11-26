@@ -1,4 +1,3 @@
-import {startSurvival} from './survival_combat.js?v=062';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
@@ -6,10 +5,10 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {levels,pathWeight,pond,pondDistance,houseSite} from './alive_levels.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
 
-const id='sunset';
+const id=new URLSearchParams(location.search).get('map')||new URLSearchParams(location.search).get('level');
 const level=Object.hasOwn(levels,id)?levels[id]:levels.sunset;
 const $=s=>document.querySelector(s), menu=$('#menu'), start=$('#start'), status=$('#status'), hint=$('#hint'), dot=$('#dot');
-$('#title').textContent='До темноты';$('#subtitle').textContent='THE LAST SUMMER / PVPVE SANDBOX';document.title='До темноты — Последнее лето';
+// The common entry point owns the map title and game UI.
 const renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1)*.8);renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.prepend(renderer.domElement);
@@ -177,4 +176,4 @@ batchStaticProps();
 scene.updateMatrixWorld(true);
 // Everything already in this scene is static. Characters/effects are added afterwards.
 for(const child of scene.children)child.traverse(o=>{o.matrixAutoUpdate=false;});
-await startSurvival({THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth]});
+export const world={THREE,scene,camera,renderer,level,height:walkHeight,free,colliders,terrain,treeBatches,sun,extraTextures:[earth],interactions,canEnter:(x,z)=>sunset||pondDistance(x,z)>=.99||dockZone(x,z)};
