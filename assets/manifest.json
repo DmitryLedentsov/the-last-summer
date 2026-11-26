@@ -652,6 +652,62 @@
     {
       "path": "assets/raw/abanodehousepack/texture/6h.png",
       "size": 240207
+    },
+    {
+      "path": "assets/curated/street/2R.png",
+      "size": 191897
+    },
+    {
+      "path": "assets/curated/street/3R.png",
+      "size": 157350
+    },
+    {
+      "path": "assets/curated/street/4R.png",
+      "size": 131960
+    },
+    {
+      "path": "assets/curated/street/5R.png",
+      "size": 35237
+    },
+    {
+      "path": "assets/curated/street/6R.png",
+      "size": 125035
+    },
+    {
+      "path": "assets/curated/street/7R.png",
+      "size": 153433
+    },
+    {
+      "path": "assets/curated/street/busstop.fbx",
+      "size": 152252
+    },
+    {
+      "path": "assets/curated/street/electricbox01.fbx",
+      "size": 144300
+    },
+    {
+      "path": "assets/curated/street/electricbox02.fbx",
+      "size": 176748
+    },
+    {
+      "path": "assets/curated/street/garage01.fbx",
+      "size": 172364
+    },
+    {
+      "path": "assets/curated/street/garage02.fbx",
+      "size": 172380
+    },
+    {
+      "path": "assets/curated/street/garage03.fbx",
+      "size": 172380
+    },
+    {
+      "path": "assets/curated/street/wall.fbx",
+      "size": 53948
+    },
+    {
+      "path": "assets/curated/street/went.fbx",
+      "size": 210620
     }
   ]
 }
