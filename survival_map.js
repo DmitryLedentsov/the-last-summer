@@ -1,4 +1,4 @@
-import {startSurvival} from './survival_combat.js?v=048';
+import {startSurvival} from './survival_combat.js?v=049';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {trunkFootprint,treeCollider,hitsCollider} from './tree_collision.js';
@@ -171,4 +171,4 @@ batchStaticProps();
 scene.updateMatrixWorld(true);
 // Everything already in this scene is static. Characters/effects are added afterwards.
 for(const child of scene.children)child.traverse(o=>{o.matrixAutoUpdate=false;});
-await startSurvival({THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun});
+await startSurvival({THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth]});

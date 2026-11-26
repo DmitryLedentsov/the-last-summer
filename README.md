@@ -111,3 +111,7 @@ F3 — FPS, p95 времени кадра, CPU simulation/submit, GPU timer (е�
 ## v0.4.8 — Camera / heading regression fix
 
 Render interpolation now preserves the exact gameplay root Euler rotation, not just its equivalent quaternion. This avoids Three.js XYZ Euler canonicalization changing the heading read by the next simulation tick. Camera offset, zoom, controls and interpolation remain unchanged. Reload the page to reset the old session's corrupted heading.
+
+## v0.4.9 — Graphics styles / quality (PvPvE)
+
+F2 / СТИЛЬ cycles Retro (original texture filters and pixelated canvas), Smooth (linear texture sampling, anisotropy and AA on Medium+), Diorama (depth-aware distance blur, stronger in overhead view, reduced when zoomed), Cinematic (subtle warm grading/vignette, depth blur and lightweight HDR highlight glow on High+). F4 / ГРАФ. cycles Low / Medium / High / Ultra independently. Active style and quality are always in the top HUD. Retro High preserves the original 0.8 scale / 2048 shadows; on touch Retro Low uses 0.5 scale / 512 shadows. Smooth scales are 0.6/0.8/1/1; Ultra allows DPR up to 1.5 and 4096 shadows. Low disables post. Medium uses weaker blur. Post is a single screen pass with depth texture and optional FXAA-like filter; no full bloom or SSAO. HDR glow requires float render target support. Other maps and gameplay unchanged. Real-device visual/performance verification is still required.
