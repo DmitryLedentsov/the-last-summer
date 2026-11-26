@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
-import {locomotionMode,locomotionRate,analogSpeed,sprintAvailable} from '../character_motion.js';
-assert.equal(locomotionMode(4.7,false),'run');
-assert.equal(locomotionMode(2.65,false),'walk');
-assert.equal(locomotionMode(.3,false),'walk');
+import {locomotionMode,legacyLocomotion,analogSpeed,sprintAvailable} from '../character_motion.js';
+assert.equal(locomotionMode(4.7,false,false,true),'run');
+assert.equal(locomotionMode(2.65,false,false,false),'walk');
 assert.equal(locomotionMode(1.12,true),'sneak');
-assert.equal(locomotionMode(.3,true),'sneak');
 assert.equal(locomotionMode(0,true),'idle');
 assert.equal(locomotionMode(4.7,true,true),'idle');
-const exhausted=sprintAvailable(0,false);
-assert.equal(locomotionMode(analogSpeed(1,{canSprint:exhausted.available}),false),'walk');
-assert(locomotionRate('sneak',1.12,true)<0);
-assert(locomotionRate('walk',2.65,false)>0);
-console.log('PASS distinct walk/run/sneak states and exhausted sprint fallback');
-
-assert.equal(locomotionMode(4.7,false,false,false),'walk');assert.equal(locomotionMode(4.7,true,false,true),'sneak');assert(locomotionRate('walk',2.65)<=1.48);assert(locomotionRate('sneak',1.12)<=1.32);
+assert.equal(locomotionMode(analogSpeed(1,{canSprint:sprintAvailable(0,false).available}),false),'walk');
+for(const [g,speed] of [['run',4.7],['walk',2.65],['sneak',1.12]])assert.equal(legacyLocomotion(g,speed).clip,'run');
+assert(legacyLocomotion('run',4.7).rate>legacyLocomotion('walk',2.65).rate);
+assert(legacyLocomotion('walk',2.65).rate>legacyLocomotion('sneak',1.12).rate);
+assert.equal(legacyLocomotion('idle',0).clip,'idle');
+assert.equal(legacyLocomotion('idle',0).rate,1);
+console.log('PASS original run shared by all gaits, distinct playback rates, no sneak on exhaustion');

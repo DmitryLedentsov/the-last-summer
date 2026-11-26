@@ -43,3 +43,8 @@ export function locomotionRate(mode,speed,backward=false){
  const rate=mode==='run'?clamp(speed/3.8,.7,1.25):mode==='walk'?clamp(speed/1.8,.15,1.48):mode==='sneak'?clamp(speed/.85,.15,1.32):1;
  return backward&&(mode==='walk'||mode==='sneak')?-rate:rate;
 }
+
+// v0.5.2 original run clip and playback formula, shared across all moving states.
+export function legacyLocomotion(gait,speed){
+ return gait==='idle'?{clip:'idle',rate:1}:{clip:'run',rate:clamp(speed/3.8,.40,1.25)};
+}

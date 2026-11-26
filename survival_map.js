@@ -1,7 +1,7 @@
-import {startSurvival} from './survival_combat.js?v=059';
+import {startSurvival} from './survival_combat.js?v=060';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
-import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=059';
+import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=060';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {levels,pathWeight,pond,pondDistance,houseSite} from './alive_levels.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
