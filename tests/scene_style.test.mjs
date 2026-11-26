@@ -24,7 +24,7 @@ const originalGeometry=terrain.geometry;
 const originalAttributes=terrain.geometry.attributes;
 const looks=createSceneStyles(T,{scene,renderer,sun,actors:[],height:()=>0});
 const baseline={sunIntensity:2.15,hemiIntensity:1.55,fogDensity:.0105,exposure:1.15};
-for(let i=0;i<5;i++)for(const style of ['DIORAMA LEGACY','LEGACY CLEAR','LEGACY SOFT','LEGACY VOLUME','LEGACY AIR','RETRO']){
+for(let i=0;i<5;i++)for(const style of ['DIORAMA LEGACY','DIORAMA LEGACY CLEAR','DIORAMA LEGACY SOFT','DIORAMA LEGACY VOLUME','DIORAMA LEGACY AIR','RETRO']){
  looks.apply(style);looks.update();
  for(let j=0;j<originalMaterials.length;j++)assert.equal(scene.children[j].material,originalMaterials[j]);
  assert.equal(terrain.geometry,originalGeometry);assert.equal(terrain.geometry.attributes,originalAttributes);
@@ -40,3 +40,5 @@ for(let i=0;i<5;i++)for(const style of ['DIORAMA LEGACY','LEGACY CLEAR','LEGACY 
  if(style==='RETRO'){assert.equal(scene.fog,fog);assert.equal(sun.intensity,2.15);assert.equal(hemi.intensity,1.55);}
 }
 console.log('PASS repeated style changes preserve all materials, terrain shader, textures, geometry, baseline light colors and exact Retro restoration');
+
+for(const name of Object.keys(LIGHT_PROFILES).filter(n=>n.startsWith('DIORAMA'))){const p=LIGHT_PROFILES[name],l=LIGHT_PROFILES['DIORAMA LEGACY'];assert.equal(p.sun,l.sun);assert.equal(p.fill,l.fill);assert.equal(p.exposure,l.exposure);}

@@ -1,13 +1,16 @@
 // Legacy is a frozen v0.5.2 reference; all experimental looks preserve authored assets.
 // Every Diorama uses exactly the frozen v0.5.2 renderer; variations are small optical and lighting adjustments.
+// Every variation is an explicit delta over the original v0.5.2 Diorama.
+export const LEGACY_STYLE=Object.freeze({name:'DIORAMA LEGACY',retro:false,blur:1,bloom:0,grade:0,legacy:true,nearOffset:0,farOffset:0});
+const variation=(name,delta)=>Object.freeze({...LEGACY_STYLE,...delta,name});
 export const STYLES=Object.freeze([
- {name:'RETRO',retro:true,blur:0,bloom:0,grade:0},
- {name:'DIORAMA LEGACY',retro:false,blur:1,bloom:0,grade:0,legacy:true},
- {name:'LEGACY CLEAR',retro:false,blur:.74,bloom:0,grade:0,legacy:true,nearOffset:8,farOffset:24},
- {name:'LEGACY SOFT',retro:false,blur:.92,bloom:0,grade:0,legacy:true,nearOffset:4,farOffset:15},
- {name:'LEGACY VOLUME',retro:false,blur:1,bloom:0,grade:0,legacy:true},
- {name:'LEGACY AIR',retro:false,blur:.88,bloom:0,grade:0,legacy:true,nearOffset:4,farOffset:12}
-].map(Object.freeze));
+ Object.freeze({name:'RETRO',retro:true,blur:0,bloom:0,grade:0}),
+ LEGACY_STYLE,
+ variation('DIORAMA LEGACY CLEAR',{blur:.82,nearOffset:8,farOffset:20}),
+ variation('DIORAMA LEGACY SOFT',{bloom:.12}),
+ variation('DIORAMA LEGACY VOLUME',{}),
+ variation('DIORAMA LEGACY AIR',{})
+]);
 export const QUALITIES=Object.freeze([
  {name:'LOW',scale:.7,shadow:512,aa:0,blur:0,bloom:0,anisotropy:2,dpr:1},
  {name:'MEDIUM',scale:.9,shadow:1024,aa:1,blur:.58,bloom:0,anisotropy:4,dpr:1},
@@ -24,7 +27,7 @@ export function graphicsSettings(styleIndex,qualityIndex,{mode=1,zoom=false}={})
 }
 export function findStyle(name){
  const key=String(name||'').toUpperCase();
- const aliases={'DIORAMA':'DIORAMA LEGACY','DIORAMA MINIATURE':'LEGACY CLEAR','DIORAMA CONTRAST':'LEGACY VOLUME','DIORAMA DREAM':'LEGACY SOFT','DIORAMA TOYBOX':'LEGACY AIR'};
+ const aliases={'DIORAMA':'DIORAMA LEGACY','DIORAMA MINIATURE':'DIORAMA LEGACY CLEAR','DIORAMA CONTRAST':'DIORAMA LEGACY VOLUME','DIORAMA DREAM':'DIORAMA LEGACY SOFT','DIORAMA TOYBOX':'DIORAMA LEGACY AIR','LEGACY CLEAR':'DIORAMA LEGACY CLEAR','LEGACY SOFT':'DIORAMA LEGACY SOFT','LEGACY VOLUME':'DIORAMA LEGACY VOLUME','LEGACY AIR':'DIORAMA LEGACY AIR'};
  return STYLES.findIndex(s=>s.name===(aliases[key]||key));
 }
 export function collectTextures(scene,extras=[]){

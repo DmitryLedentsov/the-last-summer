@@ -15,3 +15,6 @@ const apply=createTextureProfiles(T,all,8);apply(false,16);
 assert.equal(a.magFilter,1);assert.equal(a.minFilter,2);assert.equal(a.anisotropy,8);assert.equal(b.minFilter,1);
 apply(true,2);assert.equal(a.magFilter,3);assert.equal(a.minFilter,4);assert.equal(a.anisotropy,2);assert.equal(b.anisotropy,1);
 console.log('PASS 96 style/quality/view/zoom combinations, exact Legacy, no stronger blur, original texture restoration');
+
+for(const name of STYLES.slice(1).map(s=>s.name))assert(name.startsWith('DIORAMA LEGACY'));
+assert.equal(graphicsSettings(3,2).blur,graphicsSettings(1,2).blur);assert(graphicsSettings(3,2).bloom>0);

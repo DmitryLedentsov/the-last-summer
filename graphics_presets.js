@@ -1,7 +1,7 @@
-import {createSceneStyles} from './scene_style.js?v=055';
-import {createPipeline} from './graphics_pipeline_legacy.js?v=055';
-import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=055';
-export {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=055';
+import {createSceneStyles} from './scene_style.js?v=056';
+import {createPipeline} from './graphics_pipeline_legacy.js?v=056';
+import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=056';
+export {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=056';
 export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],onChange=()=>{}}){
  let style=0,quality=2,postFailed=false,appliedStyle=-1;
  const query=new URLSearchParams(location.search);

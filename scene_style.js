@@ -1,12 +1,13 @@
 // A style changes only rendering and lighting, never authored mesh materials,
 // texture assets, shader hooks, vertex attributes or material colors.
+const legacy=Object.freeze({sun:1.06,fill:1.14,fog:.7,exposure:1,contact:.48});
 export const LIGHT_PROFILES=Object.freeze({
  RETRO:Object.freeze({sun:1,fill:1,fog:1,exposure:1,contact:0}),
- 'DIORAMA LEGACY':Object.freeze({sun:1.06,fill:1.14,fog:.7,exposure:1,contact:.48}),
- 'LEGACY CLEAR':Object.freeze({sun:1.06,fill:1.14,fog:.58,exposure:1,contact:.48}),
- 'LEGACY SOFT':Object.freeze({sun:1.00,fill:1.21,fog:.7,exposure:1,contact:.40}),
- 'LEGACY VOLUME':Object.freeze({sun:1.15,fill:1.04,fog:.7,exposure:1,contact:.60}),
- 'LEGACY AIR':Object.freeze({sun:1.06,fill:1.14,fog:.48,exposure:1,contact:.48})
+ 'DIORAMA LEGACY':legacy,
+ 'DIORAMA LEGACY CLEAR':legacy,
+ 'DIORAMA LEGACY SOFT':legacy,
+ 'DIORAMA LEGACY VOLUME':Object.freeze({...legacy,contact:.60}),
+ 'DIORAMA LEGACY AIR':Object.freeze({...legacy,fog:.52})
 });
 export function lightingForStyle(original,style){
  const p=LIGHT_PROFILES[style];if(!p)throw new Error('Unknown graphics style: '+style);

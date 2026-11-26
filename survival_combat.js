@@ -7,10 +7,11 @@ import {RULES as R,newCombat,canFire,fire,roll,reload,tickCombat,rollProgress,sp
 import {createCombatFX} from './duel_fx.js?v=044';
 import {makeSightCache,createHitFeedback,createProfiler,steeringChoice} from './duel_perf.js?v=045';
 import {createPlayerInput,keyCode,playerMotion,reticleDiameter} from './player_input.js?v=047';
-import {analogSpeed,approach,strideLength,gaitStride,rollPose,movementFacing} from './character_motion.js?v=055';
-import {IDLE_DELAY,idleActivity,advanceIdle,makeQuietIdle} from './idle_animation.js?v=055';
-import {weaponPoseState,boundedAim,poseReach} from './weapon_pose.js?v=055';
-import {createGraphics} from './graphics_presets.js?v=055';
+import {analogSpeed,approach,strideLength,gaitStride,rollPose,movementFacing} from './character_motion.js?v=056';
+import {createLegSolver} from './leg_ik.js?v=056';
+import {IDLE_DELAY,idleActivity,advanceIdle,makeQuietIdle} from './idle_animation.js?v=056';
+import {weaponPoseState,boundedAim,poseReach} from './weapon_pose.js?v=056';
+import {createGraphics} from './graphics_presets.js?v=056';
 import {createRenderPose} from './render_pose.js?v=048';
 import {createTouchControls,mergeMotion} from './touch_controls.js?v=049';
 
@@ -113,22 +114,41 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
 
 
  const legs=['left','right'].map(side=>[findBone(hero.model,side+'upleg'),findBone(hero.model,side+'leg'),findBone(hero.model,side+'foot')]).filter(a=>a.every(Boolean));const legBones=legs.flat(),legBase=legBones.map(b=>b.quaternion.clone());hero.root.updateMatrixWorld(true);
- const restFeet=legs.map(([, ,foot])=>hero.root.worldToLocal(world(foot)));
- function walkingPose(weight,phase,actual,speed){
-  if(weight<.001||!legs.length)return;hero.root.updateMatrixWorld(true);
-  const forward=dir(hero.root.rotation.y),direction=actual.clone();if(direction.lengthSq()<1e-6)direction.copy(forward);else direction.normalize();
-  const stride=strideLength(speed);
+ const legSolver=createLegSolver(T,hero.root,legs),restFeet=legSolver.entries.map(e=>e.rest);
+ const centerX=restFeet.reduce((sum,p)=>sum+p.x,0)/Math.max(1,restFeet.length);
+ function locomotionPose(walkWeight,stanceWeight,phase,actual,speed){
+  const weight=Math.max(walkWeight,stanceWeight);if(weight<.001||!legs.length)return;
+  hero.root.updateMatrixWorld(true);
+  const bodyQ=hero.root.getWorldQuaternion(new T.Quaternion()),forward=dir(hero.root.rotation.y);
+  const localMove=actual.clone().applyQuaternion(bodyQ.clone().invert());localMove.y=0;
+  if(localMove.lengthSq()<1e-6)localMove.set(0,0,1);else localMove.normalize();
+  // Bound side travel during turning; never send a foot across the other leg.
+  localMove.x=clamp(localMove.x,-.30,.30);
+  const feet=legs.map(([, ,foot],i)=>{
+   const current=world(foot),q=foot.getWorldQuaternion(new T.Quaternion()),step=gaitStride(phase+i*.5,strideLength(speed));
+   const rest=restFeet[i],side=Math.sign(rest.x-centerX)|| (i===0?-1:1);
+   const target=rest.clone().addScaledVector(localMove,step.offset*walkWeight);
+   target.x+=side*.045*stanceWeight;target.z+=(i===0?.065:-.065)*stanceWeight;
+   target.x=side<0?Math.min(centerX-.035,target.x):Math.max(centerX+.035,target.x);
+   const p=hero.root.localToWorld(target);
+   p.y=height(p.x,p.z)+rest.y+step.lift*Math.min(1,speed/.75)*walkWeight;
+   // Blend the target exactly once, before solving the chain.
+   p.lerp(current,1-weight);
+   return {p,q};
+  });
+  hero.pivot.position.y-=.11*stanceWeight+.025*walkWeight*(1-stanceWeight);hero.root.updateMatrixWorld(true);
+  for(let i=0;i<legs.length;i++)legSolver.solve(i,feet[i].p,feet[i].q,bodyQ);
+  if(spine&&stanceWeight>.001){const side=dir(hero.root.rotation.y-Math.PI/2),q=new T.Quaternion().setFromAxisAngle(side,-.15*stanceWeight).multiply(spine.getWorldQuaternion(new T.Quaternion()));setWorldQ(spine,q);}
+ }
+ function tuckLegs(t){
+  if(t<=0)return;hero.root.updateMatrixWorld(true);
+  const bodyQ=hero.pivot.getWorldQuaternion(new T.Quaternion());
   for(let i=0;i<legs.length;i++){
-   const [hip,knee,foot]=legs[i],step=gaitStride(phase+i*.5,stride),current=world(foot),q=foot.getWorldQuaternion(new T.Quaternion());
-   const target=hero.root.localToWorld(restFeet[i].clone()).addScaledVector(direction,step.offset);
-   target.y=height(target.x,target.z)+restFeet[i].y+step.lift*Math.min(1,speed/.75);target.lerp(current,1-weight);
-   const a=world(hip),b=world(knee),l=a.distanceTo(b),m=b.distanceTo(current),delta=target.clone().sub(a);if(l<.001||m<.001||delta.lengthSq()<1e-8)continue;
-   const len=clamp(delta.length(),Math.abs(l-m)+.001,l+m-.001);delta.normalize();const along=(l*l-m*m+len*len)/(2*len),bend=Math.sqrt(Math.max(0,l*l-along*along));
-   const pole=forward.clone().addScaledVector(delta,-forward.dot(delta));if(pole.lengthSq()<1e-6)continue;pole.normalize();
-   pointBone(hip,knee,a.clone().addScaledVector(delta,along).addScaledVector(pole,bend));pointBone(knee,foot,a.clone().addScaledVector(delta,len));setWorldQ(foot,q);
+   const [hip,,foot]=legs[i],p=world(foot),rotation=foot.getWorldQuaternion(new T.Quaternion());
+   const compact=world(hip).add(V(0,-.39,.10).applyQuaternion(bodyQ));
+   legSolver.solve(i,p.lerp(compact,t*.85),rotation,bodyQ);
   }
  }
- function tuckLegs(t){if(t<=0)return;const q=hero.pivot.getWorldQuaternion(new T.Quaternion());for(const [hip,knee,foot] of legs){const a=world(hip),b=world(knee),c=world(foot),l=a.distanceTo(b),m=b.distanceTo(c);const k=a.clone().addScaledVector(V(0,-.35,.94).normalize().applyQuaternion(q),l);pointBone(hip,knee,b.clone().lerp(k,t));const now=world(knee),old=world(foot),f=now.clone().addScaledVector(V(0,-.55,-.84).normalize().applyQuaternion(q),m);pointBone(knee,foot,old.lerp(f,t));}}
  // Preserve the animated foot positions, lower the pelvis, then solve the two-bone legs.
  const spine=findBone(hero.model,'spine'),spineBase=spine?.quaternion.clone();
  const quietHead=[];hero.model.traverse(b=>{if(b.isBone&&/(head|neck)\d*$/i.test(b.name.replace(/[^a-z0-9]/gi,'')))quietHead.push([b,b.quaternion.clone()]);});
@@ -136,16 +156,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  const rollProbes=[[findBone(hero.model,'head'),.13],[arm,.10],[la,.10],[fore,.06],[lf,.06],[hand,.04],[lh,.04],...legs.flatMap(([hip,knee,foot])=>[[hip,.12],[knee,.07],[foot,.045]])].filter(([bone])=>bone);
  function curlRoll(t){if(!spine||t<=0)return;const side=V(1,0,0).applyQuaternion(hero.pivot.getWorldQuaternion(new T.Quaternion()));setWorldQ(spine,new T.Quaternion().setFromAxisAngle(side,.55*t).multiply(spine.getWorldQuaternion(new T.Quaternion())));}
  function clearRollGround(){hero.root.updateMatrixWorld(true);let lift=0;for(const [bone,radius] of rollProbes){const p=world(bone);lift=Math.max(lift,height(p.x,p.z)+radius-p.y);}hero.pivot.position.y+=lift;hero.root.updateMatrixWorld(true);}
- function stancePose(weight){
-  if(weight<=.001)return;
-  hero.root.updateMatrixWorld(true);
-  const forward=dir(hero.root.rotation.y),side=dir(hero.root.rotation.y-Math.PI/2);
-  const feet=legs.map(([hip,knee,foot],i)=>{const h=world(hip),k=world(knee),f=world(foot);return {p:f.clone().addScaledVector(side,(i===0?-1:1)*.055*weight).addScaledVector(forward,(i===0?.08:-.08)*weight),q:foot.getWorldQuaternion(new T.Quaternion()),l:h.distanceTo(k),m:k.distanceTo(f)};});
-  hero.pivot.position.y-=.14*weight;hero.root.updateMatrixWorld(true);
-  for(let i=0;i<legs.length;i++){const [hip,knee,foot]=legs[i],{p,q,l,m}=feet[i],a=world(hip),delta=p.clone().sub(a);if(l<.001||m<.001||delta.lengthSq()<1e-8)continue;const len=clamp(delta.length(),Math.abs(l-m)+.001,l+m-.001);delta.normalize();const along=(l*l-m*m+len*len)/(2*len),bend=Math.sqrt(Math.max(0,l*l-along*along));const pole=forward.clone().addScaledVector(delta,-forward.dot(delta));if(pole.lengthSq()<1e-6)pole.copy(side);pole.normalize();const joint=a.clone().addScaledVector(delta,along).addScaledVector(pole,bend);pointBone(hip,knee,joint);pointBone(knee,foot,a.clone().addScaledVector(delta,len));setWorldQ(foot,q);}
-  if(spine){const q=new T.Quaternion().setFromAxisAngle(side,-.15*weight).multiply(spine.getWorldQuaternion(new T.Quaternion()));setWorldQ(spine,q);}
- }
- return Object.assign(hero,{muzzle,poseGun,poseBones,poseBase,socket,legBones,legBase,tuckLegs,stancePose,walkingPose,curlRoll,clearRollGround,stabilizeHead,spine,spineBase});}
+ return Object.assign(hero,{muzzle,poseGun,poseBones,poseBase,socket,legBones,legBase,tuckLegs,locomotionPose,curlRoll,clearRollGround,stabilizeHead,spine,spineBase});}
  const fx=createCombatFX(T,scene,height,camera), hero=armed(), pos=hero.root.position, actors=[], projectiles=[], corpses=[], noises=[];
  const input=createPlayerInput(),keys=input.keys,vel=V(),targetVel=V();
  const feedback=createHitFeedback(T,camera,$('#hitfeed')), profiler=createProfiler(renderer,$('#perfstats')), cachedSight=makeSightCache();
@@ -237,7 +248,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  {
  a.pivot.rotation.set(!rolling&&running?.07:0,0,rolling&&!rollClip?c.rollSide*rp.angle:0);a.pivot.scale.setScalar(1);a.pivot.position.y=rolling&&!rollClip?rp.height:.88;
  if(a.hitTime&& !rolling){a.pivot.rotation.x=Math.sin(a.hitTime/.28*Math.PI)*.12;a.pivot.rotation.z=Math.sin(a.hitTime/.28*Math.PI)*.09;}
- a.poseBones.forEach((b,i)=>b.quaternion.copy(a.poseBase[i]));a.legBones.forEach((b,i)=>b.quaternion.copy(a.legBase[i]));if(a.spine&&a.spineBase)a.spine.quaternion.copy(a.spineBase);a.mixer.update(dt);if(!scanning&&!rolling)a.stabilizeHead();if(rolling&&!rollClip){a.tuckLegs(tuck);a.curlRoll(tuck);}if(!rolling){a.walkingPose(a.walkWeight,a.gaitPhase,actual,a.actualSpeed);a.stancePose(a.stanceWeight);}
+ a.poseBones.forEach((b,i)=>b.quaternion.copy(a.poseBase[i]));a.legBones.forEach((b,i)=>b.quaternion.copy(a.legBase[i]));if(a.spine&&a.spineBase)a.spine.quaternion.copy(a.spineBase);a.mixer.update(dt);if(!scanning&&!rolling)a.stabilizeHead();if(rolling&&!rollClip){a.tuckLegs(tuck);a.curlRoll(tuck);}if(!rolling){a.locomotionPose(a.walkWeight,a.stanceWeight,a.gaitPhase,actual,a.actualSpeed);}
  a.weaponPose=weaponPoseState(c,a.wantAim,a.weaponPose,dt,cmd.fire&&canFire(c)&&!blocked);
  a.poseGun(a.aimPoint,c.recoil,a.weaponPose);if(rolling&&!rollClip)a.clearRollGround();}
 
@@ -266,7 +277,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  a.pivot.rotation.set(a.hitTime?Math.sin(a.hitTime/.28*Math.PI)*.12:0,0,0);a.mixer.update(dt);}
  let reloadRequested=false;
  function playerCommand(dt){const mobile=touch.active?touch.state:null,k=playerMotion(keys),stance=k.stance||!!mobile?.stance,rotate=mode===2?(Number(keys.has('KeyQ'))-Number(keys.has('KeyE'))+(mobile?.rotate||0))*1.45:0;yaw+=rotate*dt;const {f,r}=mergeMotion(k.f,k.r,mobile,stance),c=hero.c,sprint=!stance&&(k.sprintKey||mobile?.sprint)&&fireBuffer<=0&&c.stamina>1&&!!(f||r),magnitude=Math.hypot(f,r),speed=mobile?analogSpeed(magnitude,{stance,canSprint:!stance&&c.stamina>1&&fireBuffer<=0}):(sprint?4.7:stance?1.12:2.65)*magnitude;const scale=magnitude>0?speed/magnitude:0;targetVel.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*scale,0,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*scale);if(!stance)input.consumeRoll();const req=input.rollAt(clock),turn=input.turnRate(dt,rotate),wantsFire=fireBuffer>0,wantsReload=keys.has('KeyR')||reloadRequested;fireBuffer=Math.max(0,fireBuffer-dt);if(wantsReload&&c.cd<=0&&c.roll<=0&&c.recover<=0&&c.stagger<=0)reloadRequested=false;return {move:targetVel,aimPoint:getAim(),faceYaw:mode===1?movementFacing(hero.root.rotation.y,targetVel.x,targetVel.z,stance||wantsFire||c.cd>.20||!!req,yaw+Math.PI):stance||wantsFire||c.cd>.20||req?undefined:movementFacing(hero.root.rotation.y,targetVel.x,targetVel.z,false,0),turn,aim:stance,fire:wantsFire,reload:wantsReload,roll:req,sprint:!!sprint||!!(mobile&&!stance&&speed>2.65&&c.stamina>1)};}
- function hudUpdate(){const c=hero.c;$('#hp').textContent=Math.ceil(c.hp)+'%';$('#hpfill').style.width=c.hp+'%';$('#staminafill').style.width=c.stamina+'%';$('#ammo').textContent=c.ammo+' / '+(Number.isFinite(c.reserve)?c.reserve:'∞');$('#rounds').textContent=Array.from({length:6},(_,i)=>i<c.ammo?'●':'○').join(' ');$('#score').textContent='Устранено '+kills+' · Смертей '+deaths;$('#wave').textContent='СВОБОДНЫЙ БОЙ / '+actors.filter(a=>a.kind==='bot'&&a.alive).length+' БОТОВ / '+actors.filter(a=>a.kind==='monster'&&a.alive).length+' СУЩЕСТВ';$('#mode').textContent=mode===1?'01 / ИЗ-ЗА ПЛЕЧА':'02 / СВЕРХУ · Q/E';$('#action').textContent=!hero.alive?'':c.roll>0?'УКЛОНЕНИЕ':c.recover>0?'ВОССТАНОВЛЕНИЕ':c.reload>0?'ЗАРЯЖАНИЕ…':c.cd>.1?'ОТДАЧА':hero.wantAim?(c.focus>.98?'ПРИЦЕЛ СВЕДЁН':'СВЕДЕНИЕ '+Math.round(c.focus*100)+'%'):'НАВСКИДКУ';$('#damage').style.opacity=damage*.72;dot.hidden=!locked||!hero.alive;dot.style.left=(mode===1?50:retX*100)+'%';dot.style.top=(mode===1?50:retY*100)+'%';const diameter=reticleDiameter(c,hero.wantAim,hero.velocity.length(),innerHeight,camera.fov);dot.style.width=dot.style.height=diameter+'px';dot.classList.toggle('focused',hero.wantAim&&c.focus>.96);dot.classList.toggle('aiming',hero.wantAim);$('#inputstate').textContent='05.5 · '+(keys.has('Space')?'СТОЙКА ':'ХОДЬБА ')+(keys.has('ArrowLeft')||keys.has('KeyA')?'← ':keys.has('ArrowRight')||keys.has('KeyD')?'→ ':'')+' · '+Math.round(c.focus*100)+'% · '+(c.roll>0?'ПЕРЕКАТ':c.recover>0?'ВОССТ.':input.rollAt(clock)?'ОЖИДАНИЕ':'ГОТОВ');dot.style.setProperty('--focus',c.focus.toFixed(3));$('#respawn').hidden=hero.alive||!locked;$('#respawnTime').textContent=Math.ceil(Math.max(0,hero.respawn));}
+ function hudUpdate(){const c=hero.c;$('#hp').textContent=Math.ceil(c.hp)+'%';$('#hpfill').style.width=c.hp+'%';$('#staminafill').style.width=c.stamina+'%';$('#ammo').textContent=c.ammo+' / '+(Number.isFinite(c.reserve)?c.reserve:'∞');$('#rounds').textContent=Array.from({length:6},(_,i)=>i<c.ammo?'●':'○').join(' ');$('#score').textContent='Устранено '+kills+' · Смертей '+deaths;$('#wave').textContent='СВОБОДНЫЙ БОЙ / '+actors.filter(a=>a.kind==='bot'&&a.alive).length+' БОТОВ / '+actors.filter(a=>a.kind==='monster'&&a.alive).length+' СУЩЕСТВ';$('#mode').textContent=mode===1?'01 / ИЗ-ЗА ПЛЕЧА':'02 / СВЕРХУ · Q/E';$('#action').textContent=!hero.alive?'':c.roll>0?'УКЛОНЕНИЕ':c.recover>0?'ВОССТАНОВЛЕНИЕ':c.reload>0?'ЗАРЯЖАНИЕ…':c.cd>.1?'ОТДАЧА':hero.wantAim?(c.focus>.98?'ПРИЦЕЛ СВЕДЁН':'СВЕДЕНИЕ '+Math.round(c.focus*100)+'%'):'НАВСКИДКУ';$('#damage').style.opacity=damage*.72;dot.hidden=!locked||!hero.alive;dot.style.left=(mode===1?50:retX*100)+'%';dot.style.top=(mode===1?50:retY*100)+'%';const diameter=reticleDiameter(c,hero.wantAim,hero.velocity.length(),innerHeight,camera.fov);dot.style.width=dot.style.height=diameter+'px';dot.classList.toggle('focused',hero.wantAim&&c.focus>.96);dot.classList.toggle('aiming',hero.wantAim);$('#inputstate').textContent='05.6 · '+(keys.has('Space')?'СТОЙКА ':'ХОДЬБА ')+(keys.has('ArrowLeft')||keys.has('KeyA')?'← ':keys.has('ArrowRight')||keys.has('KeyD')?'→ ':'')+' · '+Math.round(c.focus*100)+'% · '+(c.roll>0?'ПЕРЕКАТ':c.recover>0?'ВОССТ.':input.rollAt(clock)?'ОЖИДАНИЕ':'ГОТОВ');dot.style.setProperty('--focus',c.focus.toFixed(3));$('#respawn').hidden=hero.alive||!locked;$('#respawnTime').textContent=Math.ceil(Math.max(0,hero.respawn));}
  function pause(){hero.idleSeconds=0;locked=false;touch.stop();reloadRequested=false;feedback.clear();input.clear();trigger=aiming=false;fireBuffer=0;menu.hidden=false;hud.hidden=true;dot.hidden=true;$('#respawn').hidden=true;start.textContent='Продолжить';}
  start.onclick=()=>{fx.initAudio();if(touch.selected){if(document.pointerLockElement)document.exitPointerLock();touch.start();touch.setView(mode);if(!touchQualityInitialized){if(!graphics.explicitQuality)graphics.setQuality(0);touchQualityInitialized=true;}locked=true;menu.hidden=true;hud.hidden=false;dot.hidden=!hero.alive;return;}try{renderer.domElement.requestPointerLock()?.catch?.(()=>status.textContent='Не удалось захватить мышь.');}catch{status.textContent='Захват мыши недоступен.';}};
  document.addEventListener('pointerlockchange',()=>{if(touch.active)return;locked=document.pointerLockElement===renderer.domElement;if(locked){menu.hidden=true;hud.hidden=false;dot.hidden=!hero.alive;}else pause();});document.addEventListener('pointerlockerror',()=>status.textContent='Браузер не разрешил захват мыши.');
@@ -282,7 +293,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  function simulate(dt){clock+=dt;damage=Math.max(0,damage-dt*2.7);camKick=Math.max(0,camKick-dt*7.5);while(noises.length&&clock-noises[0].t>3)noises.shift();for(const a of actors){if(!a.alive){a.respawn-=dt;if(a.respawn<=0&&reset(a)){a.inv=1.5;if(a===hero){yaw=a.root.rotation.y-Math.PI;retX=retY=.5;cameraUpdate(.1,true);}}continue;}a.inv=Math.max(0,a.inv-dt);if(a.kind==='monster')updateMonster(a,dt);else{const old=a.root.position.clone(),cmd=a===hero?playerCommand(dt):botCommand(a,dt);advanceArmed(a,dt,cmd);if(a!==hero){if(flatDist(old,a.root.position)<.005&&cmd.move.length()>.1)a.stuck+=dt;else a.stuck=Math.max(0,a.stuck-dt);}}}
  updateBullets(dt);for(let i=corpses.length-1;i>=0;i--){const b=corpses[i];b.t+=dt;if(!b.settled){const f=clamp(b.t/.48,0,1),s=f*f*(3-2*f);b.pivot.rotation.set(b.back*s*1.40,0,b.side*s*.32);b.pivot.position.y=.88-.60*s;b.root.position.y=b.ground;if(f>=1){b.root.updateMatrixWorld(true);b.root.traverse(o=>{o.matrixAutoUpdate=false;});b.settled=true;}}if(b.t>65){scene.remove(b.root);b.root.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});corpses.splice(i,1);}}fx.update(dt);}
  const preview=new URLSearchParams(location.search).get('preview')==='1';if(preview&&new URLSearchParams(location.search).get('view')==='top')mode=2;
- cameraUpdate(.1,true);for(const a of actors)if(a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 05.5 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
+ cameraUpdate(.1,true);for(const a of actors)if(a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 05.6 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
  const playerRenderPose=createRenderPose(hero.root);
  let last=performance.now(),acc=0;
  renderer.setAnimationLoop(now=>{
