@@ -7,3 +7,6 @@ Browser QA: load all maps, start desktop and touch, check walking/stance/sprint/
 
 ## 06.6: independent hillside map
 `sunset` now loads `forest_outskirts.js` using `hillside_layout.js`. `demo` still loads the original `survival_map.js`; `mist` also retains its original builder. The new heightfield uses a graded switchback road and a flattened residential basin. Shared combat uses the same triangle sampler as the terrain mesh. Initial bot spawning falls back from the sector to global sampling; unspawned actors stay hidden and do not enter weapon posing.
+
+## 06.7: daylight outskirts art pass
+Only the hillside builder changes. Original DAYSKY.hdr, asymmetric ridge/gully terrain, forest stands and weathered asphalt. The former viewpoint is a relay-station service yard with open road access; district heat pipes and garage rows tie the neighborhood together. The original sunset demo and combat module are unchanged.
