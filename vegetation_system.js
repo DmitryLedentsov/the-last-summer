@@ -2,7 +2,7 @@
 // No colliders, no wind, no per-frame instance matrix uploads.
 // Radius to a chunk center, in world metres. Full near density in every preset.
 export const VEGETATION_PROFILES=Object.freeze([
- {near:12,far:20,mid:.25},
+ {near:12,far:20,mid:.35},
  {near:18,far:34,mid:.35},
  {near:24,far:46,mid:.45},
  {near:30,far:60,mid:.60}

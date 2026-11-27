@@ -30,6 +30,6 @@ export function createTouchControls({menu,combat=false,interactions=false,onLook
  function start(){active=true;reset();root.hidden=false;doc.body.classList.add('touch-playing');}
  function stop(){active=false;reset();root.hidden=true;doc.body.classList.remove('touch-playing');}
  function setView(mode){root.classList.toggle('view-top',mode===2);if(mode!==2){rotation.clear();rotate();}}
- doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&active){reset();onAction('pause',state);}});root.addEventListener('contextmenu',e=>e.preventDefault());sync();
- return {get selected(){return check.checked;},get active(){return active;},state,start,stop,reset,setView};
+ const lifetime=new AbortController();doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&active){reset();onAction('pause',state);}},{signal:lifetime.signal});root.addEventListener('contextmenu',e=>e.preventDefault());sync();
+ return {get selected(){return check.checked;},get active(){return active;},state,start,stop,reset,setView,dispose(){stop();lifetime.abort();root.remove();choice.remove();tip.remove();css.remove();}};
 }

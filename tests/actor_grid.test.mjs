@@ -1,0 +1,3 @@
+import assert from 'node:assert/strict';
+import {createActorGrid} from '../actor_grid.js';
+const g=createActorGrid(),a={gridOrder:0},b={gridOrder:1};g.update(a,{x:-1,z:-1});g.update(b,{x:8,z:8});assert.deepEqual(g.query(-2,-2,1,1),[a]);g.update(a,{x:9,z:9});assert.deepEqual(g.query(5,5,10,10),[a,b]);g.remove(b);assert.equal(g.size,1);assert.deepEqual(g.query(5,5,10,10),[a]);console.log('PASS moving actor grid and stable ordering');

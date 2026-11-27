@@ -64,5 +64,5 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  function setAdvancedMuzzle(value){advancedMuzzle=!!value;onEffectsChange(preferences());persist();}
  function resetPreferences(){({style,quality,grassDistance,simpleBlood,advancedMuzzle}=DEFAULT_GRAPHICS);apply();onEffectsChange(preferences());persist();}
  apply();onEffectsChange(preferences());
- return {render,diagnostics,resize,setQuality,setStyle,setGrassDistance,setSimpleBlood,setAdvancedMuzzle,cycleQuality,cycleStyle,preferences,resetPreferences,hasVegetation:!!vegetation,explicitQuality:requestedQuality>=0,get overheadLens(){return STYLES[style].lens||1;},get label(){return label();}};
+ return {render,diagnostics,resize,dispose(){pipeline.dispose();terrainLOD?.dispose();lightBudget?.dispose();renderer.shadowMap.autoUpdate=true;},setQuality,setStyle,setGrassDistance,setSimpleBlood,setAdvancedMuzzle,cycleQuality,cycleStyle,preferences,resetPreferences,hasVegetation:!!vegetation,explicitQuality:requestedQuality>=0,get overheadLens(){return STYLES[style].lens||1;},get label(){return label();}};
 }

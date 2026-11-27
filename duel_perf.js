@@ -65,7 +65,7 @@ export function createHitFeedback(T,camera,layer){
   }
  }
  function clear(){for(const s of slots){s.remaining=0;s.el.hidden=true;}}
- return {show,render,clear};
+ return {show,render,clear,dispose(){for(const s of slots)s.el.remove();}};
 }
 // Same candidates, scores and order as the original steering. The upper bound
 // excludes only candidates mathematically unable to beat the best score.
@@ -87,13 +87,13 @@ export function steeringChoice(heading,turn,stuck,velocity,lookDistance,p,actor,
 export function createProfiler(renderer,element){
  const output=element.querySelector('#perftext')||element,check=element.querySelector('#perfdetail');
  let visible=false,detail=false,frames=0,elapsed=0,sim=0,submit=0,calls=0,triangles=0,frameTimes=[],gpuMs=null,query=null,active=false,totals={},latest=null;
- const gl=renderer.getContext(),ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
+ const lifetime=new AbortController();const gl=renderer.getContext(),ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
  function discard(){if(query&&!active){gl.deleteQuery(query);query=null;}}
  function reset(){frames=elapsed=sim=submit=calls=triangles=0;frameTimes=[];totals={};latest=null;}
  function toggle(){visible=!visible;element.hidden=!visible;reset();gpuMs=null;discard();if(visible)output.textContent='FPS · сбор данных…';}
  function setDetail(value){detail=!!value;if(check)check.checked=detail;reset();if(visible)output.textContent='FPS · сбор данных…';}
  function toggleDetail(){if(!visible)toggle();setDetail(!detail);}
- if(check){check.checked=false;check.addEventListener('change',()=>setDetail(check.checked));for(const event of ['pointerdown','mousedown','mouseup','click'])check.parentElement.addEventListener(event,e=>e.stopPropagation());}
+ if(check){check.checked=false;check.addEventListener('change',()=>setDetail(check.checked),{signal:lifetime.signal});for(const event of ['pointerdown','mousedown','mouseup','click'])check.parentElement.addEventListener(event,e=>e.stopPropagation(),{signal:lifetime.signal});}
  function beforeRender(){
   if(!visible||!ext)return;
   if(query&&gl.getQueryParameter(query,gl.QUERY_RESULT_AVAILABLE)){if(!gl.getParameter(ext.GPU_DISJOINT_EXT))gpuMs=gl.getQueryParameter(query,gl.QUERY_RESULT)/1e6;else gpuMs=null;discard();}
@@ -120,5 +120,5 @@ export function createProfiler(renderer,element){
     if(s)msg+='\nSHADOW '+(s.radius?'LOCAL '+s.radius+'m':'MAP')+' / '+s.resolution+(b?' | STATIC SAVED '+b.saved:'');
    }output.textContent=msg;reset();}
  }
- return {toggle,toggleDetail,beforeRender,afterRender,sample,get detailed(){return visible&&detail;}};
+ return {toggle,toggleDetail,beforeRender,afterRender,sample,dispose(){lifetime.abort();afterRender();discard();element.hidden=true;},get detailed(){return visible&&detail;}};
 }

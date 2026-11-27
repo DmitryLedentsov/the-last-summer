@@ -11,5 +11,5 @@ export function createGraphicsMenu(graphics,{onOpen=()=>{}}={}){
  blood.addEventListener('change',()=>graphics.setSimpleBlood(blood.checked));muzzle.addEventListener('change',()=>graphics.setAdvancedMuzzle(muzzle.checked));
  get('gfx-reset').onclick=()=>{graphics.resetPreferences();sync();};get('gfx-close').onclick=close;
  root.addEventListener('click',e=>{if(e.target===root)close();});root.addEventListener('keydown',e=>{if(e.code==='Escape'){e.preventDefault();e.stopPropagation();close();}});
- return {open,close,get visible(){return !root.hidden;}};
+ return {open,close,dispose(){root.remove();},get visible(){return !root.hidden;}};
 }

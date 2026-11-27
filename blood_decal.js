@@ -1,3 +1,4 @@
+import {createBloodNoise} from './noise_tile.js?v=081';
 // Three.js port of knowercoder BloodFX WorldPosDecal.shadergraph + WorldPosDecal.mat.
 // MIT; attribution and original license: assets/curated/vfx/BloodFX-LICENSE.txt.
 // The original graph multiplies a UV radial mask by two 3-octave noise masks:
@@ -18,7 +19,7 @@ export function createBloodDecals(T,scene,height){
  }
  const geo=new T.BufferGeometry(),pos=new T.BufferAttribute(positions,3).setUsage(T.DynamicDrawUsage),birth=new T.BufferAttribute(births,1).setUsage(T.DynamicDrawUsage);
  geo.setAttribute('position',pos);geo.setAttribute('uv',new T.BufferAttribute(uvs,2));geo.setAttribute('born',birth);geo.setIndex(indices);geo.setDrawRange(0,0);
- const uniforms=T.UniformsUtils.merge([T.UniformsLib.fog,{clock:{value:0},darkColor:{value:new T.Color().setRGB(.5176471,.01568626,.020405116,T.SRGBColorSpace)},lightColor:{value:new T.Color().setRGB(.8784314,.047627717,.023529427,T.SRGBColorSpace)}}]);
+ const uniforms=T.UniformsUtils.merge([T.UniformsLib.fog,{clock:{value:0},noiseTile:{value:createBloodNoise(T)},darkColor:{value:new T.Color().setRGB(.5176471,.01568626,.020405116,T.SRGBColorSpace)},lightColor:{value:new T.Color().setRGB(.8784314,.047627717,.023529427,T.SRGBColorSpace)}}]);
  const material=new T.ShaderMaterial({uniforms,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,side:T.DoubleSide,fog:true,toneMapped:false,
  vertexShader:`
  attribute float born;
@@ -29,17 +30,14 @@ export function createBloodDecals(T,scene,height){
  #include <fog_vertex>
  }`,
  fragmentShader:`
- uniform float clock;uniform vec3 darkColor;uniform vec3 lightColor;
+ uniform float clock;uniform sampler2D noiseTile;uniform vec3 darkColor;uniform vec3 lightColor;
  varying vec2 vDecalUv;varying vec2 vGroundXZ;varying float vBorn;
  #include <fog_pars_fragment>
- float randomValue(vec2 p){return fract(sin(dot(mod(p,289.0),vec2(12.9898,78.233)))*43758.5453);}
- float valueNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
- return mix(mix(randomValue(i),randomValue(i+vec2(1.,0.)),f.x),mix(randomValue(i+vec2(0.,1.)),randomValue(i+vec2(1.,1.)),f.x),f.y);}
- // Unity Simple Noise's three octaves, normalized by neither layer nor sum.
- float simpleNoise(vec2 uv){vec2 p=uv*40.0;return .125*valueNoise(p)+.25*valueNoise(p/2.0)+.5*valueNoise(p/4.0);}
+ float simpleNoise(vec2 uv){return texture2D(noiseTile,uv/4.0).r;}
  void main(){float age=clock-vBorn;if(age<${delay}||age>=${life}.0)discard;
  float maskSize=mix(${startSize}.0,${endSize},clamp((age-${delay})/${spread},0.,1.));
  float radial=max(0.,1.-length(vDecalUv-0.5)*2.*maskSize);
+ if(radial<.174)discard;
  float a=smoothstep(.153,.27,radial*simpleNoise(vDecalUv+vGroundXZ));
  float light=smoothstep(.2,.35,radial*simpleNoise(vDecalUv));
  // Keep the original two-tone noisy mask; omit Unity's expensive normal/metallic decal passes.
