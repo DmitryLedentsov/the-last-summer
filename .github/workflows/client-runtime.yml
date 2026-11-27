@@ -1,0 +1,22 @@
+name: Client runtime
+on:
+  push:
+    branches: [master, work-081-client-stabilization]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.mjs
+      - run: python3 tools/build_runtime.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: the-last-summer-runtime
+          path: dist/runtime/
+          if-no-files-found: error
