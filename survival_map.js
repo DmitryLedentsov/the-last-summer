@@ -1,3 +1,4 @@
+import {createVegetationSystem} from './vegetation_system.js?v=076';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
@@ -42,7 +43,7 @@ function groundPlace(o,x,z,rot=0,s=1,offset=0){o.position.set(x,height(x,z)+offs
 function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad,top:b.max.y});}
 function trunk(x,z,r){colliders.push({x,z,r});}
 function free(x,z,r=.28){return !colliders.some(c=>hitsCollider(c,x,z,r));}
-const treeBatches=[];
+const treeBatches=[],vegetation=createVegetationSystem(THREE,scene,(x,z)=>height(x,z));
 function batch(t,points,shadow=false,isTree=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
 const stone=new THREE.MeshStandardMaterial({color:0x9c9c87,map:tune(await load('curated/nature/stone.JPG',textures)),roughness:1});const wood=new THREE.MeshStandardMaterial({color:0x887255,roughness:1}), iron=new THREE.MeshStandardMaterial({color:0x545b58,roughness:1});
 function box(w,h,d,m,x,y,z,parent=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
@@ -150,7 +151,7 @@ function plantChance(key,x,z){const d=level.distance(x,z),edge=Math.exp(-((d-2.5
  return .18+.61*p+.20*edge;
 }
 for(const [key,collection,name,h,count,min,max] of plantSpecs){const t=template(collection,name,h),points=[];if(!t)continue;for(let n=0;n<count*16&&points.length<count;n++){let x,z;if(rnd()<.74){const [cx,cz,r]=clusters[key][Math.floor(rnd()*clusters[key].length)],a=rnd()*Math.PI*2,d=Math.sqrt(rnd())*r;x=cx+Math.cos(a)*d;z=cz+Math.sin(a)*d;}else{x=(rnd()-.5)*(level.size-5);z=(rnd()-.5)*(level.size-5);}if(Math.abs(x)>level.size/2-1||Math.abs(z)>level.size/2-1||level.distance(x,z)<.72||level.road(x,z)<(sunset?2.0:1.6)||!free(x,z,key==='bush'?.6:.08))continue;if(sunset&&Math.abs(x-houseSite.x)<22.2&&Math.abs(z-houseSite.z)<12.5)continue;if(!sunset&&((x>6.4&&x<15.5&&Math.abs(z-10)<1.15)||pondDistance(x,z)<(key==='reed'?.94:.99)||(x>-27.5&&x<-13.5&&z>-24.3&&z<-19.8)))continue;if(rnd()>plantChance(key,x,z))continue;const s=min+(max-min)*rnd()**1.7;points.push([x,z,s,rnd()*Math.PI*2]);if(key==='bush'||key==='stump')trunk(x,z,.28*s);}
- batch(t,points,['bush','rock','stone','stump'].includes(key));}
+ if(['grass','dandelion','lavender','reed','naturegrass','plant'].includes(key))vegetation.add(t,points);else batch(t,points,['bush','rock','stone','stump'].includes(key));}
 for(const [index,shape] of treeReplacements)colliders[index]=shape;
 // Optional movement-collider overlay for checking the exact trunk footprint.
 if(new URLSearchParams(location.search).get('colliders')==='1'){
@@ -176,4 +177,4 @@ batchStaticProps();
 scene.updateMatrixWorld(true);
 // Everything already in this scene is static. Characters/effects are added afterwards.
 for(const child of scene.children)child.traverse(o=>{o.matrixAutoUpdate=false;});
-export const world={THREE,scene,camera,renderer,level,height:walkHeight,free,colliders,terrain,treeBatches,sun,extraTextures:[earth],interactions,canEnter:(x,z)=>sunset||pondDistance(x,z)>=.99||dockZone(x,z)};
+export const world={THREE,scene,camera,renderer,vegetation,level,height:walkHeight,free,colliders,terrain,treeBatches,sun,extraTextures:[earth],interactions,canEnter:(x,z)=>sunset||pondDistance(x,z)>=.99||dockZone(x,z)};

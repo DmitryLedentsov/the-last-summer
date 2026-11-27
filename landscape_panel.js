@@ -1,3 +1,4 @@
+import {createVegetationSystem} from './vegetation_system.js?v=076';
 import * as THREE from 'three';
 import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
@@ -60,7 +61,7 @@ function free(x,z,r=.28){return !colliders.some(c=>hitsCollider(c,x,z,r));}
 function at(x,z,y=0){return new THREE.Vector3(x,height(x,z)+y,z);}
 function box(w,h,d,m,x,y,z,parent=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
 function beam(a,b,r,m,parent=scene){const v=new THREE.Vector3().subVectors(b,a),o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,v.length(),7),m);o.position.copy(a).add(b).multiplyScalar(.5);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
-const treeBatches=[];
+const treeBatches=[],vegetation=createVegetationSystem(THREE,scene,(x,z)=>height(x,z));
 function batch(t,points,shadow=false,isTree=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
 function labelTexture(text,sub=''){const canvas=document.createElement('canvas');canvas.width=256;canvas.height=128;const c=canvas.getContext('2d');c.fillStyle='#c6c5ab';c.fillRect(0,0,256,128);c.strokeStyle='#5d6258';c.lineWidth=5;c.strokeRect(6,6,244,116);c.fillStyle='#35463e';c.textAlign='center';c.font='bold 28px monospace';c.fillText(text,128,54);c.font='18px monospace';c.fillText(sub,128,90);const t=new THREE.CanvasTexture(canvas);return tune(t);}
 
@@ -199,7 +200,7 @@ for(const [key,count,min,max] of plantConfigs){const t=plantTemplates[key],point
   if(rnd()>plantChance(key,x,z))continue;
   const s=min+(max-min)*rnd()**1.7;points.push([x,z,s,rnd()*Math.PI*2]);if(key==='bush'||key==='stump')trunk(x,z,.28*s);
 }
- batch(t,points,['bush','rock','stump'].includes(key));}
+ if(['grass','dandelion','lavender','reed','naturegrass','plant'].includes(key))vegetation.add(t,points);else batch(t,points,['bush','rock','stump'].includes(key));}
 
 function batchStaticProps(){
  scene.updateMatrixWorld(true);const groups=new Map();
@@ -210,4 +211,4 @@ function batchStaticProps(){
 batchStaticProps();
 
 scene.updateMatrixWorld(true);
-export const world={THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth,roadTex],interactions};
+export const world={THREE,scene,camera,renderer,vegetation,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth,roadTex],interactions};

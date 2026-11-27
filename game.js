@@ -1,3 +1,4 @@
+import {createVegetationSystem} from './vegetation_system.js?v=076';
 import * as THREE from 'three';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RGBELoader} from 'three/addons/loaders/RGBELoader.js';
@@ -276,12 +277,13 @@ for(const [i,[x,z]] of COURTYARD.trees.entries()){
  treePoints[j].push([x,z,s,a]);colliders.push(combatTreeCollider(woodShapes[j],x,z,s,a,0));
 }
 templates.forEach((t,i)=>batch(t,treePoints[i],true));
+const vegetation=createVegetationSystem(THREE,scene,(x,z)=>height(x,z));
 function scatter(source,count,h){if(!source)return;const template=normalize(prepareObject(source),h),points=[];
  for(let i=0;i<count;i++){const x=(rand()-.5)*76,z=(rand()-.5)*76;if(!canScatter(x,z,colliders,hitsCollider))continue;if(Math.hypot(x-COURTYARD.spawn[0],z-COURTYARD.spawn[1])<2)continue;points.push([x,z,.55+rand()*.7,rand()*Math.PI*2]);}
- batch(template,points);
+ vegetation.add(template,points);
 }
 scatter(cloneNamed(forest,['psx_grass']),2200,.38);scatter(cloneNamed(forest,['dandelion']),130,.25);scatter(cloneNamed(nature,['bush']),65,.8);
 function updateEnvironment(dt,now){for(const a of animatedLamps){const pulse=.96+.04*Math.sin(now*.0016+a.phase);a.l.intensity=a.base*pulse;a.m.opacity=.18*pulse;}}
 if(colliders.some(c=>hitsCollider(c,...COURTYARD.spawn,.48)))throw Error('Courtyard spawn intersects a collider');
 scene.updateMatrixWorld(true);
-export const world={THREE,scene,camera,renderer,level:{title:'Забытый двор',limit:COURTYARD.limit,spawn:COURTYARD.spawn,yaw:COURTYARD.yaw},height,colliders,terrain,treeBatches,sun:moon,interactions,updateEnvironment};
+export const world={THREE,scene,camera,renderer,vegetation,level:{title:'Забытый двор',limit:COURTYARD.limit,spawn:COURTYARD.spawn,yaw:COURTYARD.yaw},height,colliders,terrain,treeBatches,sun:moon,interactions,updateEnvironment};

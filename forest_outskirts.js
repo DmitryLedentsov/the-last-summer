@@ -4,7 +4,7 @@ import {RGBELoader} from 'three/addons/loaders/RGBELoader.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
 import {createSpatialGrid} from './spatial_grid.js?v=068';
 import {createWorldData} from './world_data.js?v=068';
-import {createVegetationSystem,seededRandom} from './vegetation_system.js?v=070';
+import {createVegetationSystem,seededRandom} from './vegetation_system.js?v=076';
 import {biomeAt,plantChance} from './hillside_biomes.js?v=068';
 import {splitStaticInstances} from './duel_perf.js?v=070';
 import {batchStaticProps} from './static_batch.js?v=069';

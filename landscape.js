@@ -1,3 +1,4 @@
+import {createVegetationSystem} from './vegetation_system.js?v=076';
 import * as THREE from 'three';
 import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
@@ -39,7 +40,7 @@ function groundPlace(o,x,z,rot=0,s=1,offset=0){o.position.set(x,height(x,z)+offs
 function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad,top:b.max.y});}
 function trunk(x,z,r){colliders.push({x,z,r});}
 function free(x,z,r=.28){return !colliders.some(c=>hitsCollider(c,x,z,r));}
-const treeBatches=[];
+const treeBatches=[],vegetation=createVegetationSystem(THREE,scene,(x,z)=>height(x,z));
 function batch(t,points,shadow=false,isTree=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
 const trees=level.treeSpecies.map(n=>template(forest,n,8)).filter(Boolean);if(!trees.length)throw new Error('Forest collection has no matching trees');
 const treePoints=trees.map(()=>[]),treeFeet=trees.map(t=>collectWoodTriangles(THREE,t)),treeReplacements=[];function addTree(x,z,s,i){if(!free(x,z,1.7)||Math.abs(x-level.trail(z))<level.trailWidth+1.9||Math.hypot(x-level.spawn[0],z-level.spawn[1])<2.6)return;const j=i%trees.length,a=rnd()*Math.PI*2;treePoints[j].push([x,z,s,a]);treeReplacements.push([colliders.length,combatTreeCollider(treeFeet[j],x,z,s,a,height(x,z)-.025)]);trunk(x,z,.36*s);}
@@ -50,7 +51,7 @@ for(let n=0;n<level.trees*6&&treePoints.reduce((a,p)=>a+p.length,0)<level.trees;
 }
 trees.forEach((t,i)=>batch(t,treePoints[i],true,true));
 const grassT=template(forest,'PSX_Grass',.43), flowers=template(forest,level.flowers,.68), reed=template(forest,'PSX_Reed',.65), rocks=template(forest,'PSX_Rock',.65), bush=template(nature,'Bush',1.2), trunkT=template(forest,'PSX_Treetrunk',1.1);
-function scatter(t,count,min,max,condition,shadow=false){const points=[];for(let n=0;n<count*4&&points.length<count;n++){const x=(rnd()-.5)*(level.size-5),z=(rnd()-.5)*(level.size-5);if(condition(x,z)&&free(x,z,.12))points.push([x,z,min+rnd()*(max-min),rnd()*Math.PI*2]);}batch(t,points,shadow);}
+function scatter(t,count,min,max,condition,shadow=false){const points=[];for(let n=0;n<count*4&&points.length<count;n++){const x=(rnd()-.5)*(level.size-5),z=(rnd()-.5)*(level.size-5);if(condition(x,z)&&free(x,z,.12))points.push([x,z,min+rnd()*(max-min),rnd()*Math.PI*2]);}if(shadow)batch(t,points,true);else vegetation.add(t,points);}
 const offPath=(x,z)=>trailMask(level,x,z)<.16;
 scatter(grassT,level.grassCount,.55,1.5,offPath);scatter(flowers,level.sky==='sunset'?330:170,.65,1.4,(x,z)=>offPath(x,z)&&Math.sin(x*.33+z*.25)>.1);scatter(bush,level.sky==='mist'?80:125,.6,1.4,offPath,true);scatter(rocks,level.sky==='twilight'?180:65,.55,1.8,offPath,true);scatter(trunkT,18,.65,1.3,offPath,true);if(level.sky==='mist')scatter(reed,260,.8,1.5,(x,z)=>offPath(x,z)&&height(x,z)<.4);
 const stone=new THREE.MeshStandardMaterial({color:0x9c9c87,map:tune(await load('curated/nature/stone.JPG',textures)),roughness:1});const wood=new THREE.MeshStandardMaterial({color:0x887255,roughness:1}), iron=new THREE.MeshStandardMaterial({color:0x545b58,roughness:1});
@@ -72,4 +73,4 @@ if(level.sky==='sunset'){
 }
 for(const [index,shape] of treeReplacements)colliders[index]=shape;
 scene.updateMatrixWorld(true);
-export const world={THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth],interactions};
+export const world={THREE,scene,camera,renderer,vegetation,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth],interactions};

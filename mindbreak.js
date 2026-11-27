@@ -1,3 +1,4 @@
+import {createVegetationSystem} from './vegetation_system.js?v=076';
 import * as THREE from 'three';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
@@ -122,7 +123,8 @@ for(let i=0;i<1100;i++){if(treeLists.reduce((n,a)=>n+a.length,0)>=172)break;cons
 treeTypes.forEach((t,i)=>batch(t,treeLists[i],true,true));
 const plantLists=plantTemplates.map(()=>[]),rockList=[];
 for(let i=0;i<18500&&plantLists.reduce((n,a)=>n+a.length,0)<8000;i++){const x=range(-88,88),z=range(-88,88);if(!clearZone(x,z)||!free(x,z,.08)||Math.sin(x*.22)*Math.cos(z*.18)<-.72)continue;if(plantLists.length){const n=Math.floor(rnd()*plantLists.length);plantLists[n].push([x,z,range(.55,1.5),rnd()*TAU]);}else break;}
-plantTemplates.forEach((t,i)=>batch(t,plantLists[i]));
+const vegetation=createVegetationSystem(THREE,scene,(x,z)=>height(x,z));
+plantTemplates.forEach((t,i)=>vegetation.add(t,plantLists[i]));
 for(let i=0;i<600&&rockList.length<130;i++){const x=range(-84,84),z=range(-84,84);if(clearZone(x,z)&&free(x,z,1.2)){const s=range(.3,1.5);rockList.push([x,z,s,rnd()*TAU]);if(s>.9)reserve(x,z,.42*s);}}
 batch(rockT,rockList,true);
 extraProps.forEach((o,i)=>{const x=trail(-38)+5+i%3*5,z=-38-Math.floor(i/3)*6;if(free(x,z,1)){place(o,x,z,1,rnd()*TAU);reserve(x,z,.65);}});
@@ -135,4 +137,4 @@ function updateEnvironment(dt,now){
  for(const a of lights)a.l.intensity=a.power*(.94+.06*Math.sin(now*.0011+a.phase));dust.position.y=Math.sin(now*.00027)*.35;
 }
 scene.updateMatrixWorld(true);
-export const world={THREE,scene,camera,renderer,level:{title:'Распад сознания',limit:87,spawn,yaw:0},height,free,colliders,terrain:floor,treeBatches,sun,interactions:points,updateEnvironment};
+export const world={THREE,scene,camera,renderer,vegetation,level:{title:'Распад сознания',limit:87,spawn,yaw:0},height,free,colliders,terrain:floor,treeBatches,sun,interactions:points,updateEnvironment};
