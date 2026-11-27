@@ -37,3 +37,6 @@
 ## 07.1
 - `curated/swamp/`: ABERRANT CURSE PSX Forest assets, supplied by the user as redistributable. FBX files are losslessly zlib-compressed; original textures. Credit: ABERRANT CURSE.
 - `curated/vfx/`: Binbun Muzzle Flash VFX (selected reduced-resolution masks) and knowercoder BloodFX (BloodSplat, Smoke, MIT license included). Engine-specific project files are not included.
+
+## 07.5
+`blood_decal.js` ports the procedural UV/world-position two-noise mask, colors, thresholds and animated mask size from BloodFX `WorldPosDecal.shadergraph`, `WorldPosDecal.mat` and `BloodFXController.cs` (MIT). Ground-conforming pooled geometry replaces the previous polygon stamps. Unity-specific normal/metallic projection passes are not used in the lightweight PSX renderer.

@@ -1,6 +1,8 @@
 // Texture-driven PSX effects: Binbun Muzzle Flash VFX and knowercoder BloodFX.
 // Fixed world-space flash planes, bounded smoke and blood particle pools.
-export const FLASH_LIFE=.20;
+export const FLASH_LIFE=.26;
+export const BLOOD_LIFE=.82;
+export const FLASH_SCALE=1.18;
 export function flashFrame(age,dt){return age<0?0:age+Math.max(0,dt);}
 export function createStyledVFX(T,scene,camera){
  const root=new URL('./assets/curated/vfx/',import.meta.url),loader=new T.TextureLoader(),rnd=Math.random;
@@ -17,13 +19,13 @@ export function createStyledVFX(T,scene,camera){
  // Clones share image source but must be uploaded again after asynchronous load.
  const cloudMat=color=>new T.MeshBasicMaterial({color,map:smoke,transparent:true,depthWrite:false,opacity:0,side:T.DoubleSide});
  const clouds=Array.from({length:56},()=>{const m=new T.Mesh(plane,cloudMat(0xb9b5aa));m.visible=false;scene.add(m);return {m,p:v(),vel:v(),t:0,total:1,s:.1,angle:0,blood:false};});
- const splats=Array.from({length:18},()=>{const g=new T.Group(),mat=new T.MeshBasicMaterial({color:0xa32921,alphaMap:frames[0],transparent:true,depthWrite:false,side:T.DoubleSide,opacity:0});for(let j=0;j<3;j++){const m=new T.Mesh(plane,mat);m.rotation.y=j*Math.PI/3;g.add(m);}g.visible=false;scene.add(g);return {g,mat,p:v(),vel:v(),age:Infinity,total:.48,s:.3};});
+ const splats=Array.from({length:18},()=>{const g=new T.Group(),mat=new T.MeshBasicMaterial({color:0xa32921,alphaMap:frames[0],transparent:true,depthWrite:false,side:T.DoubleSide,opacity:0});for(let j=0;j<3;j++){const m=new T.Mesh(plane,mat);m.rotation.y=j*Math.PI/3;g.add(m);}g.visible=false;scene.add(g);return {g,mat,p:v(),vel:v(),age:Infinity,total:BLOOD_LIFE,s:.3};});
  let fi=0,ci=0,bi=0;
- function cloud(p,d,isBlood){const c=clouds[ci++%clouds.length];c.p.copy(p);c.vel.copy(d).multiplyScalar(isBlood?.35:.48).add(v((rnd()-.5)*.24,.16+rnd()*.18,(rnd()-.5)*.24));c.t=c.total=isBlood?.40+rnd()*.12:.66+rnd()*.20;c.s=isBlood?.18:.13+rnd()*.045;c.angle=rnd()*Math.PI*2;c.blood=isBlood;c.m.material.color.set(isBlood?0x7d201a:0xc2bcb1);c.m.material.opacity=isBlood?.46:.49;c.m.position.copy(p);c.m.scale.setScalar(c.s);c.m.visible=true;}
- function muzzle(p,d){const f=flashes[fi++%flashes.length];f.age=-1;f.g.position.copy(p).addScaledVector(d,.035);f.g.quaternion.setFromUnitVectors(z,d);f.g.rotateZ(rnd()*6.28);f.g.scale.setScalar(.9+rnd()*.24);f.g.visible=true;shotLight.position.copy(p);shotLight.intensity=10;lightAge=-1;for(const m of f.mats)m.opacity=1;for(let i=0;i<3;i++)cloud(p,d,false);}
- function hit(p,d){const b=splats[bi++%splats.length];b.p.copy(p);b.vel.copy(d).multiplyScalar(.7);b.age=-1;b.total=.48;b.s=.34+rnd()*.1;b.g.position.copy(p);b.g.quaternion.setFromUnitVectors(z,d);b.g.rotateZ(rnd()*6.28);b.g.scale.setScalar(b.s);b.mat.alphaMap=frames[0];b.mat.opacity=.9;b.g.visible=true;for(let i=0;i<2;i++)cloud(p,d,true);}
+ function cloud(p,d,isBlood){const c=clouds[ci++%clouds.length];c.p.copy(p);c.vel.copy(d).multiplyScalar(isBlood?.23:.48).add(v((rnd()-.5)*.24,.16+rnd()*.18,(rnd()-.5)*.24));c.t=c.total=isBlood?.66+rnd()*.20:.66+rnd()*.20;c.s=isBlood?.18:.13+rnd()*.045;c.angle=rnd()*Math.PI*2;c.blood=isBlood;c.m.material.color.set(isBlood?0x7d201a:0xc2bcb1);c.m.material.opacity=isBlood?.46:.49;c.m.position.copy(p);c.m.scale.setScalar(c.s);c.m.visible=true;}
+ function muzzle(p,d){const f=flashes[fi++%flashes.length];f.age=-1;f.g.position.copy(p).addScaledVector(d,.035);f.g.quaternion.setFromUnitVectors(z,d);f.g.rotateZ(rnd()*6.28);f.g.scale.setScalar(FLASH_SCALE*(.9+rnd()*.24));f.g.visible=true;shotLight.position.copy(p);shotLight.intensity=10;lightAge=-1;for(const m of f.mats)m.opacity=1;for(let i=0;i<3;i++)cloud(p,d,false);}
+ function hit(p,d){const b=splats[bi++%splats.length];b.p.copy(p);b.vel.copy(d).multiplyScalar(.44);b.age=-1;b.total=BLOOD_LIFE;b.s=.34+rnd()*.1;b.g.position.copy(p);b.g.quaternion.setFromUnitVectors(z,d);b.g.rotateZ(rnd()*6.28);b.g.scale.setScalar(b.s);b.mat.alphaMap=frames[0];b.mat.opacity=.9;b.g.visible=true;for(let i=0;i<2;i++)cloud(p,d,true);}
  function update(dt){
- lightAge=flashFrame(lightAge,dt);shotLight.intensity=10*Math.max(0,1-lightAge/FLASH_LIFE);
+ lightAge=flashFrame(lightAge,dt);shotLight.intensity=10*Math.max(0,1-lightAge/.16);
  for(const f of flashes)if(f.g.visible){f.age=flashFrame(f.age,dt);const k=Math.max(0,1-f.age/FLASH_LIFE);f.g.visible=k>0;for(const m of f.mats)m.opacity=Math.min(1,k*1.6);}
 
  for(const c of clouds)if(c.t>0){c.t=Math.max(0,c.t-dt);const k=c.t/c.total;c.m.visible=c.t>0;if(!c.t)continue;c.p.addScaledVector(c.vel,dt);c.m.position.copy(c.p);c.m.quaternion.copy(camera.quaternion);c.m.rotateZ(c.angle);c.m.scale.setScalar(c.s*(1+(1-k)*2));c.m.material.opacity=k*(c.blood?.46:.49);}
