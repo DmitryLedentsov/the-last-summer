@@ -2,7 +2,7 @@ import {createSceneStyles} from './scene_style.js?v=056';
 import {createPipeline} from './graphics_pipeline_legacy.js?v=056';
 import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=056';
 export {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=056';
-export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],onChange=()=>{}}){
+export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],vegetation=null,vegetationOrigin=null,onChange=()=>{}}){
  let style=0,quality=2,postFailed=false,appliedStyle=-1;
  const query=new URLSearchParams(location.search);
  const requestedStyle=findStyle(query.get('style'));
@@ -26,7 +26,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
   renderer.shadowMap.needsUpdate=true;resize();onChange(label());
  }
  function render(mode=1,zoom=false){
-  looks.update();const cfg=graphicsSettings(style,quality,{mode,zoom});
+  vegetation?.update(vegetationOrigin||camera.position,quality);looks.update();const cfg=graphicsSettings(style,quality,{mode,zoom});
   if(postFailed||cfg.s.retro||!(cfg.aa||cfg.blur||cfg.bloom||cfg.grade||cfg.ao)){renderer.render(scene,camera);return;}
   const oldAuto=renderer.info.autoReset;renderer.info.autoReset=false;renderer.info.reset();
   try{renderer.getDrawingBufferSize(bufferSize);pipeline.render(cfg,bufferSize.x,bufferSize.y);}
