@@ -17,3 +17,14 @@ export function poseReach(raise,state){
  if(state==='reload')return .53;
  return .57+.30*clamp(raise,0,1);
 }
+
+// Independent, upper-body-only magazine exchange. All offsets are in metres.
+export function reloadMotion(p){
+ p=clamp(p,0,1);const ease=x=>{x=clamp(x,0,1);return x*x*(3-2*x);};
+ if(p<.18){const k=ease(p/.18);return {hand:k,hip:0,offset:0,tilt:k,visible:false};}
+ if(p<.36)return {hand:1,hip:0,offset:.095*ease((p-.18)/.18),tilt:1,visible:true};
+ if(p<.52)return {hand:1,hip:ease((p-.36)/.16),offset:.095,tilt:1,visible:false};
+ if(p<.68)return {hand:1,hip:1-ease((p-.52)/.16),offset:.095,tilt:1,visible:false};
+ if(p<.86)return {hand:1,hip:0,offset:.095*(1-ease((p-.68)/.18)),tilt:1,visible:true};
+ const k=1-ease((p-.86)/.14);return {hand:k,hip:0,offset:0,tilt:k,visible:false};
+}

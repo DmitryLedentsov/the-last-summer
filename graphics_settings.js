@@ -43,9 +43,10 @@ export function createTextureProfiles(T,textures,maxAnisotropy){
  const original=new Map([...textures].map(t=>[t,{magFilter:t.magFilter,minFilter:t.minFilter,anisotropy:t.anisotropy}]));
  return (retro,anisotropy)=>{
   for(const [t,o] of original){
-   const mag=retro?o.magFilter:T.LinearFilter;
-   const min=retro?o.minFilter:(!t.generateMipmaps&&!(t.mipmaps?.length)?T.LinearFilter:T.LinearMipmapLinearFilter);
-   const aniso=retro?o.anisotropy:Math.min(maxAnisotropy,anisotropy);
+   const pixel=retro||t.userData?.lockPixelFilter;
+   const mag=pixel?o.magFilter:T.LinearFilter;
+   const min=pixel?o.minFilter:(!t.generateMipmaps&&!(t.mipmaps?.length)?T.LinearFilter:T.LinearMipmapLinearFilter);
+   const aniso=pixel?o.anisotropy:Math.min(maxAnisotropy,anisotropy);
    if(t.magFilter!==mag||t.minFilter!==min||t.anisotropy!==aniso){
     t.magFilter=mag;t.minFilter=min;t.anisotropy=aniso;t.needsUpdate=true;
    }

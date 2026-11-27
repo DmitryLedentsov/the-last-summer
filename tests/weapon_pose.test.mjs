@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {weaponPoseState,boundedAim,poseReach} from '../weapon_pose.js';
+import {weaponPoseState,boundedAim,poseReach,reloadMotion} from '../weapon_pose.js';
 const c={roll:0,recover:0,reload:0,cd:0},idle={raise:0,support:0};
 const ready=weaponPoseState(c,false,idle,1/60);
 assert.equal(ready.state,'ready');assert.equal(ready.raise,0);
@@ -12,3 +12,5 @@ assert(Math.abs(boundedAim(0,Math.PI))<=Math.PI*.42);
 assert(Math.abs(boundedAim(Math.PI-.1,-Math.PI+.1)-(Math.PI+.1))<1e-8);
 assert(poseReach(1,'aim')>poseReach(0,'ready'));
 console.log('PASS ready/aim/fire/reload/roll transitions and bounded aim direction');
+
+assert.equal(reloadMotion(0).hand,0);assert.equal(reloadMotion(1).hand,0);assert.equal(reloadMotion(.27).visible,true);assert.equal(reloadMotion(.44).visible,false);assert.equal(reloadMotion(.77).visible,true);assert(reloadMotion(.27).offset>0);assert(reloadMotion(.77).offset>0);

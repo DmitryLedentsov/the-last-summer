@@ -5,15 +5,15 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {prepareMalorian, socketPoint, MALORIAN} from './malorian_weapon.js?v=062';
 import {clone as cloneRig} from 'three/addons/utils/SkeletonUtils.js';
 import {hitsCollider,hitsTreeRay} from './tree_collision.js?v=061';
-import {RULES as R,newCombat,canFire,fire,roll,reload,tickCombat,rollProgress,spread,sphereHit} from './duel_rules.js?v=043';
-import {createCombatFX} from './duel_fx.js?v=072';
+import {RULES as R,newCombat,canFire,fire,roll,reload,tickCombat,rollProgress,spread,sphereHit} from './duel_rules.js?v=073';
+import {createCombatFX} from './duel_fx.js?v=073';
 import {makeSightCache,createHitFeedback,createProfiler,steeringChoice} from './duel_perf.js?v=070';
 import {createPlayerInput,keyCode,playerMotion,reticleDiameter} from './player_input.js?v=047';
 import {analogSpeed,approach,strideLength,gaitStride,movementFacing,sprintAvailable,createPoseLayer,locomotionMode,legacyLocomotion} from './character_motion.js?v=061';
 import {createLegSolver} from './leg_ik.js?v=061';
 import {IDLE_DELAY,idleActivity,advanceIdle,makeQuietIdle} from './idle_animation.js?v=061';
-import {weaponPoseState,boundedAim,poseReach} from './weapon_pose.js?v=061';
-import {createGraphics} from './graphics_presets.js?v=069';
+import {weaponPoseState,boundedAim,poseReach,reloadMotion} from './weapon_pose.js?v=073';
+import {createGraphics} from './graphics_presets.js?v=073';
 import {createRenderPose} from './render_pose.js?v=048';
 import {createTouchControls,mergeMotion} from './touch_controls.js?v=063';
 
@@ -64,6 +64,9 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  socket.position.copy(V(.055,-.015,0).applyMatrix4(gripBasis)).divide(gripScale);
  socket.scale.set(1/gripScale.x,1/gripScale.y,1/gripScale.z);
  const secondaryGrip=new T.Object3D();secondaryGrip.position.set(-.020,-.050,-.055);socket.add(secondaryGrip);
+ // Malorian is a single pistol body mesh. Use a small PSX magazine proxy only while it is being handled.
+ const magazine=new T.Mesh(new T.BoxGeometry(.033,.092,.026),new T.MeshStandardMaterial({color:0x373a38,roughness:.88,metalness:.08}));
+ const magBase=V(-.020,-.087,.004);magazine.position.copy(magBase);magazine.visible=false;socket.add(magazine);
  function solveArm(upper,lower,wrist,target,hint){
   const origin=world(upper),middle=world(lower),tip=world(wrist),l=origin.distanceTo(middle),m=middle.distanceTo(tip);
   const delta=target.clone().sub(origin);if(l<.001||m<.001||delta.lengthSq()<1e-8)return;
@@ -81,6 +84,8 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
   const shoulder=world(arm),l1=shoulder.distanceTo(world(fore)),l2=world(fore).distanceTo(world(hand));
   const outward=la?shoulder.clone().sub(world(la)).normalize():bodyForward.clone().cross(bodyUp).normalize();
   const compact=pose.state==='roll'||pose.state==='recover'||pose.state==='reload';
+  const exchange=pose.state==='reload'?reloadMotion(1-hero.c.reload/R.reloadTime):null;
+  magazine.visible=!!exchange?.visible;magazine.position.copy(magBase);if(exchange)magazine.position.y-=exchange.offset;
   // Low ready and recovery are body-relative, not world-space targets at the player's feet.
   const low=bodyForward.clone().addScaledVector(bodyUp,compact?-.26:-.58).normalize();
   let aimDir=aim.clone().sub(shoulder);if(aimDir.lengthSq()<1e-6)aimDir.copy(bodyForward);else aimDir.normalize();
@@ -91,13 +96,13 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
   const raise=compact?0:pose.raise,forward=low.clone().lerp(aimDir,raise);
   if(forward.lengthSq()<1e-6)forward.copy(bodyForward);forward.normalize();
   const target=shoulder.clone().addScaledVector(forward,Math.min(.50,(l1+l2)*poseReach(raise,pose.state))-recoil*.035)
-   .addScaledVector(outward,.025*(1-raise)).addScaledVector(bodyUp,-.065+recoil*.06);
+   .addScaledVector(outward,.025*(1-raise)-(exchange?.tilt||0)*.05).addScaledVector(bodyUp,-.065+recoil*.06+(exchange?.tilt||0)*.05);
   solveArm(arm,fore,hand,target,bodyUp.clone().negate().addScaledVector(outward,.42));
   let handAim=aim.clone().sub(world(hand));if(handAim.lengthSq()<1e-6)handAim.copy(bodyForward);else handAim.normalize();
   if(!pose.fireNow&&!compact){const angle=boundedAim(hero.root.rotation.y,Math.atan2(handAim.x,handAim.z));const y=clamp(handAim.y,-.85,.85),horizontal=Math.sqrt(1-y*y);handAim.set(Math.sin(angle)*horizontal,y,Math.cos(angle)*horizontal);}
   const barrel=low.clone().lerp(handAim,raise);
   if(barrel.lengthSq()<1e-6)barrel.copy(bodyForward);
-  barrel.addScaledVector(bodyUp,recoil*.16).normalize();
+  barrel.addScaledVector(bodyUp,recoil*.16+(exchange?.tilt||0)*.42).addScaledVector(outward,-(exchange?.tilt||0)*.18).normalize();
   let vertical=bodyUp.clone().addScaledVector(barrel,-bodyUp.dot(barrel));
   if(vertical.lengthSq()<1e-6)vertical=outward.clone().addScaledVector(barrel,-outward.dot(barrel));
   vertical.normalize();const side=barrel.clone().cross(vertical).normalize();
@@ -105,6 +110,15 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
   setWorldQ(hand,new T.Quaternion().setFromRotationMatrix(basis.clone().multiply(gripInverse)));
   socket.updateWorldMatrix(true,true);
   const support=compact?0:pose.support;
+  if(exchange&&la&&lf&&lh){
+   const oldQ=lh.getWorldQuaternion(new T.Quaternion());
+   const magGoal=socket.localToWorld(magazine.position.clone());
+   const hipGoal=world(la).addScaledVector(bodyUp,-.52).addScaledVector(bodyForward,.10).addScaledVector(outward,-.10);
+   const goal=world(lh).lerp(magGoal.lerp(hipGoal,exchange.hip),exchange.hand);
+   solveArm(la,lf,lh,goal,bodyUp.clone().negate().addScaledVector(outward,-.42));
+   const gripQ=new T.Quaternion().setFromRotationMatrix(basis.clone().multiply(leftBasis));
+   setWorldQ(lh,oldQ.slerp(gripQ,.75*exchange.hand*(1-exchange.hip)));
+  }
   if(support>.001&&la&&lf&&lh){
    const oldQ=lh.getWorldQuaternion(new T.Quaternion()),goal=world(lh).lerp(world(secondaryGrip),support);
    solveArm(la,lf,lh,goal,bodyUp.clone().negate().addScaledVector(outward,-.42));
@@ -221,7 +235,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  const blocked=c.roll>0||c.recover>0;const target=blocked?V():cmd.move.clone().multiplyScalar(c.stagger>0?.3:c.cd>.47?.52:1);if(a.wantAim&&target.length()>1.12)target.setLength(1.12);a.velocity.lerp(target,1-Math.exp(-dt*16));if(blocked)a.velocity.set(0,0,0);
  const aimDir=a.aimPoint.clone().sub(chest(a)).normalize(),turn=a.lastAim?Math.acos(clamp(a.lastAim.dot(aimDir),-1,1))/dt:0;a.lastAim=aimDir;
   const aimTurn=a===hero?cmd.turn:Math.max(turn,Math.abs(wrap(a.root.rotation.y-oldYaw))/dt);
- const beforeMove=a.root.position.clone();const {travel,loaded}=tickCombat(c,dt,{aim:a.wantAim,speed:a.velocity.length(),turn:aimTurn,sprint:cmd.sprint&&!blocked});if(travel>0){const moved=move(a,a.rollDir.x*travel,a.rollDir.z*travel,.33);/* A blocked step limits travel, not the roll animation or its recovery. */}else if(!blocked)move(a,a.velocity.x*dt,a.velocity.z*dt,.32);if(loaded)fx.sound('reload',a.root.position);if(cmd.reload)reload(c);if(cmd.fire&&canFire(c))c.reload=0;
+ const beforeMove=a.root.position.clone();const {travel,loaded}=tickCombat(c,dt,{aim:a.wantAim,speed:a.velocity.length(),turn:aimTurn,sprint:cmd.sprint&&!blocked});if(travel>0){const moved=move(a,a.rollDir.x*travel,a.rollDir.z*travel,.33);/* A blocked step limits travel, not the roll animation or its recovery. */}else if(!blocked)move(a,a.velocity.x*dt,a.velocity.z*dt,.32);if(loaded)fx.sound('reload',a.root.position);if(cmd.reload&&reload(c))fx.sound('reload',a.root.position);
  const rolling=c.roll>0,progress=rollProgress(c),tuck=rolling?Math.sin(progress*Math.PI):0;
   const actual=a.actualMove.copy(a.root.position).sub(beforeMove);actual.y=0;const measured=actual.length()/dt;a.actualSpeed=approach(a.actualSpeed,blocked?0:measured,dt,18);
   const desiredStance=a.wantAim&&!rolling&&!c.recover?1:0;a.stanceWeight=rolling?0:approach(a.stanceWeight,desiredStance,dt,15);
@@ -249,7 +263,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  a.weaponPose=weaponPoseState(c,a.wantAim,a.weaponPose,dt,cmd.fire&&canFire(c)&&!blocked);
  a.poseGun(a.aimPoint,c.recoil,a.weaponPose);}
 
- if(cmd.fire&&!blocked){if(c.ammo>0){if(spawnBullet(a)&&a===hero)fireBuffer=0;}else{reload(c);if(a===hero)fireBuffer=0;}}}
+ if(cmd.fire&&!blocked){if(c.ammo>0){if(spawnBullet(a)&&a===hero)fireBuffer=0;}else{if(reload(c))fx.sound('reload',a.root.position);if(a===hero)fireBuffer=0;}}}
  function nearestTarget(a,max,requireLOS=true){let best=null,dist=max;const p=chest(a);for(const b of actors){if(!b.alive||b===a||(a.kind==='monster'&&b.kind==='monster'))continue;const d=flatDist(a.root.position,b.root.position);if(d<dist&&(!requireLOS||sees(a,b))){best=b;dist=d;}}return best;}
  function randomGoal(a){const p=a.root.position;for(let i=0;i<36;i++){const angle=rnd()*6.28,r=(7+rnd()*19)*spacing,x=p.x+Math.sin(angle)*r,z=p.z+Math.cos(angle)*r;if(allowed(x,z,.45))return V(x,height(x,z),z);}return p.clone();}
  // Local obstacle steering. Re-evaluate heading to move around trunks, fences, houses.
@@ -266,7 +280,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  if(target.kind==='monster'&&range<5){motion=p.clone().sub(target.root.position);motion.y=0;wantAim=range>=3.5&&c.cd<=.26&&c.reload<=0&&c.ammo>0;motion.normalize().multiplyScalar(wantAim?1.0:2.2);if(target.attack>0&&range<2.4&&rnd()<dt*9)rollSide=rnd()<.5?-1:1;}
  else if(range>21){motion=steer(a,target.root.position,2.3,dt);wantAim=false;}else if(range<6){motion=p.clone().sub(target.root.position);motion.y=0;motion.normalize().multiplyScalar(1.0);}else if(c.cd>.26||c.reload>0){if(a.goalTime<=0){a.goal=p.clone().addScaledVector(dir(a.root.rotation.y+Math.PI/2),a.turn*(3+rnd()*4));a.goalTime=1.1;a.turn=rnd()<.5?-1:1;}motion=steer(a,a.goal,1.65,dt);wantAim=false;}
  wantFire=c.cd<=0&&c.reload<=0&&(c.focus>(range<8?.32:.75)||range<3.5)&&rnd()<dt*(range<6?12:7)&&clearLine(chest(a),chest(target));if(c.ammo<=2&&range>10&&c.cd<=0&&rnd()<dt*.55)wantReload=true;
- }else{if(target?.alive&&a.lastSeen&&a.alert>0){motion=steer(a,a.lastSeen,2.3,dt);}else{if(!a.goal||a.goalTime<=0||flatDist(p,a.goal)<1.4){a.goal=randomGoal(a);a.goalTime=6+rnd()*7;}motion=steer(a,a.goal,1.8,dt);}if(motion.lengthSq()>.1)aimPoint=p.clone().addScaledVector(motion.clone().normalize(),10).add(V(0,1.05,0));wantReload=c.ammo<6;}
+ }else{if(target?.alive&&a.lastSeen&&a.alert>0){motion=steer(a,a.lastSeen,2.3,dt);}else{if(!a.goal||a.goalTime<=0||flatDist(p,a.goal)<1.4){a.goal=randomGoal(a);a.goalTime=6+rnd()*7;}motion=steer(a,a.goal,1.8,dt);}if(motion.lengthSq()>.1)aimPoint=p.clone().addScaledVector(motion.clone().normalize(),10).add(V(0,1.05,0));wantReload=c.ammo<R.capacity;}
  if(a.stuck>1.3){a.turn*=-1;a.goal=randomGoal(a);a.goalTime=2;a.stuck=0;}if(rollSide)wantAim=true;return {move:motion,aimPoint,aim:wantAim,fire:wantFire,reload:wantReload,roll:rollSide,sprint};}
  function updateMonster(a,dt){const c=a.c,p=a.root.position;a.think-=dt;a.alert=Math.max(0,a.alert-dt);c.stagger=Math.max(0,c.stagger-dt);a.hitTime=Math.max(0,(a.hitTime||0)-dt);if(a.think<=0){a.think=.23+rnd()*.15;const heard=noises.filter(n=>clock-n.t<2&&n.t>(a.lastNoise??-1)&&flatDist(p,n.p)<n.radius).sort((x,y)=>flatDist(p,x.p)-flatDist(p,y.p))[0];if(heard){a.lastNoise=heard.t;a.heard=heard.p.clone();a.alert=13;}const seen=nearestTarget(a,a.alert>0?18:5.5);if(seen){a.target=seen;a.alert=9;a.heard=seen.root.position.clone();}else if(!a.target?.alive||!a.alert)a.target=null;}
  let target=a.target,dist=target?.alive?flatDist(p,target.root.position):Infinity;const see=target?.alive&&dist<25&&sees(a,target);if(see)a.heard=target.root.position.clone();if(!a.alert){a.target=null;target=null;}const goal=see?target.root.position:a.alert>0?a.heard:null;
@@ -274,7 +288,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  a.pivot.rotation.set(a.hitTime?Math.sin(a.hitTime/.28*Math.PI)*.12:0,0,0);a.mixer.update(dt);}
  let reloadRequested=false;
  function playerCommand(dt){const mobile=touch.active?touch.state:null,k=mobile?{stance:false,f:0,r:0,sprintKey:false}:playerMotion(keys),stance=mobile?mobile.stance:k.stance,rotate=mode===2?(Number(keys.has('KeyQ'))-Number(keys.has('KeyE'))+(mobile?.rotate||0))*1.45:0;yaw+=rotate*dt;const {f,r}=mergeMotion(k.f,k.r,mobile,stance),c=hero.c,energy=sprintAvailable(c.stamina,hero.sprintExhausted);hero.sprintExhausted=energy.exhausted;const canSprint=!stance&&energy.available&&fireBuffer<=0,magnitude=Math.hypot(f,r),sprint=canSprint&&k.sprintKey&&magnitude>0,speed=mobile?analogSpeed(magnitude,{stance,canSprint}):(sprint?4.7:stance?1.12:2.65)*magnitude;const scale=magnitude>0?speed/magnitude:0;targetVel.set((-Math.sin(yaw)*f+Math.cos(yaw)*r)*scale,0,(-Math.cos(yaw)*f-Math.sin(yaw)*r)*scale);if(!stance)input.consumeRoll();const req=input.rollAt(clock),turn=input.turnRate(dt,rotate),wantsFire=fireBuffer>0,wantsReload=keys.has('KeyR')||reloadRequested;fireBuffer=Math.max(0,fireBuffer-dt);if(wantsReload&&c.cd<=0&&c.roll<=0&&c.recover<=0&&c.stagger<=0)reloadRequested=false;return {move:targetVel,aimPoint:getAim(),faceYaw:mode===1?movementFacing(hero.root.rotation.y,targetVel.x,targetVel.z,stance||wantsFire||c.cd>.20||!!req,yaw+Math.PI):stance||wantsFire||c.cd>.20||req?undefined:movementFacing(hero.root.rotation.y,targetVel.x,targetVel.z,false,0),turn,aim:stance,fire:wantsFire,reload:wantsReload,roll:req,sprint:!!sprint||!!(mobile&&canSprint&&speed>2.65)};}
- function hudUpdate(){const c=hero.c;$('#hp').textContent=Math.ceil(c.hp)+'%';$('#hpfill').style.width=c.hp+'%';$('#staminafill').style.width=c.stamina+'%';$('#ammo').textContent=c.ammo+' / '+(Number.isFinite(c.reserve)?c.reserve:'∞');$('#rounds').textContent=Array.from({length:R.capacity},(_,i)=>i<c.ammo?'●':'○').join(' ');$('#score').textContent='Устранено '+kills+' · Смертей '+deaths;$('#wave').textContent='СВОБОДНЫЙ БОЙ / '+actors.filter(a=>a.kind==='bot'&&a.alive).length+' БОТОВ / '+actors.filter(a=>a.kind==='monster'&&a.alive).length+' СУЩЕСТВ';$('#mode').textContent=mode===1?'01 / ИЗ-ЗА ПЛЕЧА':'02 / СВЕРХУ · Q/E';$('#action').textContent=!hero.alive?'':c.roll>0?'УКЛОНЕНИЕ':c.recover>0?'ВОССТАНОВЛЕНИЕ':c.reload>0?'ЗАРЯЖАНИЕ…':c.cd>.1?'ОТДАЧА':hero.wantAim?(c.focus>.98?'ПРИЦЕЛ СВЕДЁН':'СВЕДЕНИЕ '+Math.round(c.focus*100)+'%'):'НАВСКИДКУ';$('#damage').style.opacity=damage*.72;dot.hidden=!locked||!hero.alive;dot.style.left=(mode===1?50:retX*100)+'%';dot.style.top=(mode===1?50:retY*100)+'%';const diameter=reticleDiameter(c,hero.wantAim,hero.velocity.length(),innerHeight,camera.fov);dot.style.width=dot.style.height=diameter+'px';dot.classList.toggle('focused',hero.wantAim&&c.focus>.96);dot.classList.toggle('aiming',hero.wantAim);$('#inputstate').textContent='07.0 · '+(hero.gait||'idle').toUpperCase()+' · '+((touch.active?touch.state.stance:keys.has('Space'))?'СТОЙКА ':hero.sprintExhausted?'ВОССТ. СИЛ ':'ХОДЬБА ')+(keys.has('ArrowLeft')||keys.has('KeyA')?'← ':keys.has('ArrowRight')||keys.has('KeyD')?'→ ':'')+' · '+Math.round(c.focus*100)+'% · '+(c.roll>0?'ПЕРЕКАТ':c.recover>0?'ВОССТ.':input.rollAt(clock)?'ОЖИДАНИЕ':'ГОТОВ');dot.style.setProperty('--focus',c.focus.toFixed(3));$('#respawn').hidden=hero.alive||!locked;$('#respawnTime').textContent=Math.ceil(Math.max(0,hero.respawn));}
+ function hudUpdate(){const c=hero.c;$('#hp').textContent=Math.ceil(c.hp)+'%';$('#hpfill').style.width=c.hp+'%';$('#staminafill').style.width=c.stamina+'%';$('#ammo').textContent=c.ammo+' / '+(Number.isFinite(c.reserve)?c.reserve:'∞');$('#rounds').textContent=Array.from({length:R.capacity},(_,i)=>i<c.ammo?'●':'○').join(' ');$('#score').textContent='Устранено '+kills+' · Смертей '+deaths;$('#wave').textContent='СВОБОДНЫЙ БОЙ / '+actors.filter(a=>a.kind==='bot'&&a.alive).length+' БОТОВ / '+actors.filter(a=>a.kind==='monster'&&a.alive).length+' СУЩЕСТВ';$('#mode').textContent=mode===1?'01 / ИЗ-ЗА ПЛЕЧА':'02 / СВЕРХУ · Q/E';$('#action').textContent=!hero.alive?'':c.roll>0?'УКЛОНЕНИЕ':c.recover>0?'ВОССТАНОВЛЕНИЕ':c.reload>0?'СМЕНА МАГАЗИНА…':c.cd>.1?'ОТДАЧА':hero.wantAim?(c.focus>.98?'ПРИЦЕЛ СВЕДЁН':'СВЕДЕНИЕ '+Math.round(c.focus*100)+'%'):'НАВСКИДКУ';$('#damage').style.opacity=damage*.72;dot.hidden=!locked||!hero.alive;dot.style.left=(mode===1?50:retX*100)+'%';dot.style.top=(mode===1?50:retY*100)+'%';const diameter=reticleDiameter(c,hero.wantAim,hero.velocity.length(),innerHeight,camera.fov);dot.style.width=dot.style.height=diameter+'px';dot.classList.toggle('focused',hero.wantAim&&c.focus>.96);dot.classList.toggle('aiming',hero.wantAim);$('#inputstate').textContent='07.3 · '+(hero.gait||'idle').toUpperCase()+' · '+((touch.active?touch.state.stance:keys.has('Space'))?'СТОЙКА ':hero.sprintExhausted?'ВОССТ. СИЛ ':'ХОДЬБА ')+(keys.has('ArrowLeft')||keys.has('KeyA')?'← ':keys.has('ArrowRight')||keys.has('KeyD')?'→ ':'')+' · '+Math.round(c.focus*100)+'% · '+(c.roll>0?'ПЕРЕКАТ':c.recover>0?'ВОССТ.':input.rollAt(clock)?'ОЖИДАНИЕ':'ГОТОВ');dot.style.setProperty('--focus',c.focus.toFixed(3));$('#respawn').hidden=hero.alive||!locked;$('#respawnTime').textContent=Math.ceil(Math.max(0,hero.respawn));}
  let notice='',noticeUntil=0;
  function nearby(){return interactions.filter(i=>Math.hypot(i.x-pos.x,i.z-pos.z)<(i.radius||2.8)).sort((a,b)=>Math.hypot(a.x-pos.x,a.z-pos.z)-Math.hypot(b.x-pos.x,b.z-pos.z))[0];}
  function interact(){const i=nearby();if(i){notice=i.message;noticeUntil=performance.now()+3600;}}
@@ -295,7 +309,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  function simulate(dt){const detailed=profiler.detailed;clock+=dt;damage=Math.max(0,damage-dt*2.7);camKick=Math.max(0,camKick-dt*7.5);while(noises.length&&clock-noises[0].t>3)noises.shift();for(const a of actors){const actorStart=detailed?performance.now():0;if(!a.alive){a.respawn-=dt;if(a.respawn<=0&&reset(a)){a.inv=1.5;if(a===hero){yaw=a.root.rotation.y-Math.PI;retX=retY=.5;cameraUpdate(.1,true);}}if(detailed)framePerf.respawn+=performance.now()-actorStart;continue;}a.inv=Math.max(0,a.inv-dt);if(a.kind==='monster'){updateMonster(a,dt);if(detailed)framePerf.monster+=performance.now()-actorStart;}else{const old=a.root.position.clone(),cmd=a===hero?playerCommand(dt):botCommand(a,dt),commandEnd=detailed?performance.now():0;advanceArmed(a,dt,cmd);if(detailed){if(a===hero)framePerf.player+=performance.now()-actorStart;else{framePerf.botAI+=commandEnd-actorStart;framePerf.botMove+=performance.now()-commandEnd;}}if(a!==hero){if(flatDist(old,a.root.position)<.005&&cmd.move.length()>.1)a.stuck+=dt;else a.stuck=Math.max(0,a.stuck-dt);}}}
  const fxStart=detailed?performance.now():0;updateBullets(dt);for(let i=corpses.length-1;i>=0;i--){const b=corpses[i];b.t+=dt;if(!b.settled){const f=clamp(b.t/.48,0,1),s=f*f*(3-2*f);b.pivot.rotation.set(b.back*s*1.40,0,b.side*s*.32);b.pivot.position.y=.88-.60*s;b.root.position.y=b.ground;if(f>=1){b.root.updateMatrixWorld(true);b.root.traverse(o=>{o.matrixAutoUpdate=false;});b.settled=true;}}if(b.t>65){scene.remove(b.root);b.root.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});corpses.splice(i,1);}}fx.update(dt);if(detailed)framePerf.fx+=performance.now()-fxStart;}
  const preview=new URLSearchParams(location.search).get('preview')==='1';if(preview&&new URLSearchParams(location.search).get('view')==='top')mode=2;
- cameraUpdate(.1,true);for(const a of actors)if(a.alive&&a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 07.2 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
+ cameraUpdate(.1,true);for(const a of actors)if(a.alive&&a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 07.3 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
  const playerRenderPose=createRenderPose(hero.root);
  let last=performance.now(),acc=0;
  renderer.setAnimationLoop(now=>{

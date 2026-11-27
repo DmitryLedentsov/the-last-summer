@@ -27,3 +27,11 @@ export function swampHeight(x,z){
 export function roadMask(x,z){return 1-smooth(.65,1.8,roadDistance(x,z));}
 export function canWade(height,x,z){return height(x,z)>=WATER-.62;}
 export function reserve(x,z){return roadDistance(x,z)<.85||buildingDistance(x,z)<.55||Math.hypot(x-SWAMP.spawn[0],z-SWAMP.spawn[1])<1.6;}
+
+// Deterministic non-periodic cover patches: open muddy spots and continuous grass groups.
+function coverNoise(x,z,size){
+ const i=Math.floor(x/size),j=Math.floor(z/size),u=smooth(0,1,x/size-i),v=smooth(0,1,z/size-j);
+ const hash=(a,b)=>{let n=Math.imul(a,374761393)+Math.imul(b,668265263);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295;};
+ return (hash(i,j)*(1-u)+hash(i+1,j)*u)*(1-v)+(hash(i,j+1)*(1-u)+hash(i+1,j+1)*u)*v;
+}
+export function marshCover(x,z){return .67*coverNoise(x,z,9)+.23*coverNoise(x,z,3.2)+.10*coverNoise(x,z,1.3);}
