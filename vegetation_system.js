@@ -1,7 +1,14 @@
 // Visual-only ground cover: deterministic placement, spatial batches and density LOD.
 // No colliders, no wind, no per-frame instance matrix uploads.
-export const VEGETATION_PROFILE=Object.freeze({near:12,far:20,mid:.35});
-export const VEGETATION_PROFILES=Object.freeze(Array(4).fill(VEGETATION_PROFILE));
+// Radius to a chunk center, in world metres. Full near density in every preset.
+export const VEGETATION_PROFILES=Object.freeze([
+ {near:12,far:20,mid:.35},
+ {near:18,far:34,mid:.35},
+ {near:24,far:46,mid:.30},
+ {near:30,far:60,mid:.25}
+].map(Object.freeze));
+export const VEGETATION_PROFILE=VEGETATION_PROFILES[0];
+export function vegetationProfile(quality=1){return VEGETATION_PROFILES[Math.max(0,Math.min(3,Number.isInteger(quality)?quality:1))];}
 export function seededRandom(seed){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
 export function partitionPlants(points,size=24){
  const chunks=new Map();
@@ -10,7 +17,7 @@ export function partitionPlants(points,size=24){
 }
 export function distanceToChunk(x,z,c){return Math.hypot(Math.max(c.x-x,0,x-c.x-c.size),Math.max(c.z-z,0,z-c.z-c.size));}
 export function densityFor(distance,quality=1,previous=1){
- const p=VEGETATION_PROFILE,h=1.5;
+ const p=vegetationProfile(quality),h=1.5;
  // Keep the entire near-field density identical across quality presets.
  if(distance<=p.near+(previous===1?h:0))return 1;
  if(distance<=p.far+(previous>0?h:0))return p.mid;
@@ -32,11 +39,12 @@ export function createVegetationSystem(T,scene,height,{chunkSize=12}={}){
   lastQuality=-1;
  }
  function update(position,quality=1){
-  const {x,z}=position;if(lastQuality!==-1&&Math.hypot(x-lastX,z-lastZ)<1.5)return;
+  const {x,z}=position;const changed=quality!==lastQuality;
+  if(!changed&&Math.hypot(x-lastX,z-lastZ)<1.5)return;
   lastX=x;lastZ=z;lastQuality=quality;active=activeChunks=activeMeshes=0;
-  for(const c of chunks){const d=densityFor(Math.hypot(x-c.x-c.size/2,z-c.z-c.size/2),quality,c.density),count=d>0?Math.max(1,Math.floor(c.capacity*d)):0;
+  for(const c of chunks){const d=densityFor(Math.hypot(x-c.x-c.size/2,z-c.z-c.size/2),quality,changed?0:c.density),count=d>0?Math.max(1,Math.floor(c.capacity*d)):0;
    if(d!==c.density){for(const m of c.meshes){m.count=count;m.visible=count>0;}c.density=d;}active+=count;if(count){activeChunks++;activeMeshes+=c.meshes.length;}
   }
  }
- return {add,update,stats:()=>({chunks:chunks.length,total,active,activeChunks,activeMeshes})};
+ return {add,update,stats:()=>({chunks:chunks.length,total,active,activeChunks,activeMeshes,profile:vegetationProfile(lastQuality<0?1:lastQuality)})};
 }

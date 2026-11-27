@@ -16,6 +16,7 @@ export function splitStaticInstances(T,scene,treeBatches,size=36){
    const b=new T.InstancedMesh(mesh.geometry,mesh.material,ids.length);
    b.position.copy(mesh.position);b.quaternion.copy(mesh.quaternion);b.scale.copy(mesh.scale);
    b.castShadow=mesh.castShadow;b.receiveShadow=mesh.receiveShadow;b.visible=mesh.visible;b.renderOrder=mesh.renderOrder;b.layers.mask=mesh.layers.mask;b.name=mesh.name;
+   b.frustumCulled=mesh.frustumCulled;b.customDepthMaterial=mesh.customDepthMaterial;b.customDistanceMaterial=mesh.customDistanceMaterial;
    ids.forEach((id,i)=>b.setMatrixAt(i,matrices[id]));
    if(mesh.instanceColor){const color=new T.Color();ids.forEach((id,i)=>{mesh.getColorAt(id,color);b.setColorAt(i,color);});}
    b.instanceMatrix.needsUpdate=true;b.computeBoundingSphere();scene.add(b);
@@ -106,7 +107,7 @@ export function createProfiler(renderer,element){
   if(elapsed>=.6){const sorted=frameTimes.slice().sort((a,b)=>a-b),p95=sorted[Math.ceil(sorted.length*.95)-1],avg=k=>((totals[k]||0)/frames).toFixed(1),ms=n=>(n/frames).toFixed(1);
    let msg=Math.round(frames/elapsed)+' FPS | P95 '+p95.toFixed(1)+' ms | '+quality+'\nSIM+PRE '+ms(sim)+' | SUBMIT '+ms(submit)+' | GPU '+(gpuMs===null?'n/a':gpuMs.toFixed(1))+' ms\nDRAW '+num(calls/frames)+' | TRI '+num(triangles/frames);
    if(detail&&latest){const x=latest,g=x.graphics||{},v=g.vegetation,s=g.shadow,b=x.staticBatchStats;
-    msg+='\n06.9 '+x.map+' | V'+x.view+(x.zoom?' ZOOM':'')+' | '+g.width+'x'+g.height;
+    msg+='\n07.0 '+x.map+' | V'+x.view+(x.zoom?' ZOOM':'')+' | '+g.width+'x'+g.height;
     msg+='\nTICKS '+avg('steps')+' | SIM '+avg('sim')+' | CAM/HUD '+Math.max(0,(sim-(totals.sim||0))/frames).toFixed(1)+' ms';
     msg+='\nPLAYER '+avg('player')+' | BOT AI '+avg('botAI')+' | BOT POSE/MOVE '+avg('botMove');
     msg+='\nMONSTERS '+avg('monster')+' | RESPAWN '+avg('respawn')+' | FX '+avg('fx')+' ms';
@@ -114,7 +115,7 @@ export function createProfiler(renderer,element){
     msg+='\nSHADOW CPU '+avg('shadowMs')+' ms | DRAW '+num((totals.shadowCalls||0)/frames)+' | TRI '+num((totals.shadowTriangles||0)/frames);
     msg+='\nSCENE DRAW '+num((totals.sceneCalls||0)/frames)+' | POST '+num((totals.postCalls||0)/frames)+' | TRI '+num((totals.sceneTriangles||0)/frames);
     msg+='\nACTORS '+x.actors+' | CORPSES '+x.corpses+' | BULLETS '+x.bullets+' | COL '+x.colliders;
-    if(v)msg+='\nGRASS '+num(v.active)+'/'+num(v.total)+' | BATCH '+v.activeChunks+'/'+v.chunks+' | MESH '+v.activeMeshes;
+    if(v){msg+='\nGRASS '+num(v.active)+'/'+num(v.total)+' | BATCH '+v.activeChunks+'/'+v.chunks+' | MESH '+v.activeMeshes;if(v.profile)msg+=' | LOD '+v.profile.near+'/'+v.profile.far+'m';}
     if(s)msg+='\nSHADOW '+(s.radius?'LOCAL '+s.radius+'m':'MAP')+' / '+s.resolution+(b?' | STATIC SAVED '+b.saved:'');
    }output.textContent=msg;reset();}
  }
