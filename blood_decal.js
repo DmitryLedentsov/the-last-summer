@@ -50,14 +50,10 @@ export function createBloodDecals(T,scene,height){
  #include <fog_fragment>
  }`});
  const mesh=new T.Mesh(geo,material);mesh.frustumCulled=false;mesh.name='BloodFX ground decals';mesh.renderOrder=1;scene.add(mesh);
- let cursor=0,count=0,time=0;
- function add(p,size=.35){const slot=cursor++%capacity,first=slot*per,angle=Math.random()*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle),extent=size*halfExtent;
-  for(let j=0;j<side;j++)for(let i=0;i<side;i++){
-   const k=first+j*side+i,u=(i/segments*2-1)*extent,v=(j/segments*2-1)*extent,x=p.x+c*u-s*v,z=p.z+s*u+c*v;
-   positions[k*3]=x;positions[k*3+1]=height(x,z)+.035;positions[k*3+2]=z;births[k]=time;
-  }
-  pos.needsUpdate=birth.needsUpdate=true;count=Math.min(capacity,count+1);geo.setDrawRange(0,count*segments*segments*6);
- }
- function update(dt){time+=Math.max(0,dt);uniforms.clock.value=time;}
- return {add,update,setVisible(value){mesh.visible=!!value;}};
+ let key='';
+ function sync(marks,time){uniforms.clock.value=time;const next=marks.map(m=>m.id).join(',');if(next===key)return;key=next;
+ for(let slot=0;slot<marks.length;slot++){const {p,size,angle,born}=marks[slot],first=slot*per,c=Math.cos(angle),s=Math.sin(angle),extent=size*halfExtent;
+ for(let j=0;j<side;j++)for(let i=0;i<side;i++){const k=first+j*side+i,u=(i/segments*2-1)*extent,v=(j/segments*2-1)*extent,x=p.x+c*u-s*v,z=p.z+s*u+c*v;positions[k*3]=x;positions[k*3+1]=height(x,z)+.035;positions[k*3+2]=z;births[k]=born;}}
+ pos.needsUpdate=birth.needsUpdate=true;geo.setDrawRange(0,marks.length*segments*segments*6);}
+ return {sync,setVisible(value){mesh.visible=!!value;}};
 }

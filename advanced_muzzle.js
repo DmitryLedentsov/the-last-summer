@@ -43,13 +43,13 @@ export function createAdvancedMuzzle(T,scene,load,front,side){
      #include <colorspace_fragment>
     }`});
  }
- const quad=new T.PlaneGeometry(1,1,16,16);
+ const quad=new T.PlaneGeometry(1,1),curved=new T.PlaneGeometry(1,1,16,16);
  const hemi=new T.SphereGeometry(.15,16,8,0,Math.PI*2,0,Math.PI/2);
  hemi.scale(1,.4/.15,1);hemi.rotateX(Math.PI/2);
  const pool=Array.from({length:8},()=>{
   const group=new T.Group(),layers=[];
   function make(layer,count,map,size,center){for(let i=0;i<count;i++){
-   const m=material(map,layer),mesh=new T.Mesh(quad,m),spin=new T.Group();
+   const m=material(map,layer),mesh=new T.Mesh(layer==='front'?curved:quad,m),spin=new T.Group();
    mesh.scale.setScalar(size);if(layer!=='front'){mesh.rotation.x=Math.PI/2;mesh.position.z=center;}
    else mesh.position.z=.01;
    spin.add(mesh);group.add(spin);layers.push({layer,mesh,spin,m,size,delay:layer==='long'?i*.40*.2/count:0});
@@ -73,5 +73,5 @@ export function createAdvancedMuzzle(T,scene,load,front,side){
   shot.group.visible=shot.glow.visible||shot.layers.some(l=>l.mesh.visible||shot.age<l.delay);
  }}
  function clear(){for(const shot of pool)shot.group.visible=false;}
- return {muzzle,update,clear};
+ return {muzzle,update,clear,count:()=>pool.filter(s=>s.group.visible).length};
 }

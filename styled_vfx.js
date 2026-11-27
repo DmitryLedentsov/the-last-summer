@@ -1,4 +1,4 @@
-import {createAdvancedMuzzle} from './advanced_muzzle.js?v=080';
+import {createAdvancedMuzzle} from './advanced_muzzle.js?v=081';
 // Texture-driven PSX effects: Binbun Muzzle Flash VFX and knowercoder BloodFX.
 // Fixed world-space flash planes, bounded smoke and blood particle pools.
 export const FLASH_LIFE=.40;
@@ -25,7 +25,7 @@ export function createStyledVFX(T,scene,camera){
  function setAdvanced(value){if(advancedEnabled===!!value)return;advancedEnabled=!!value;advanced.clear();for(const f of flashes)f.g.visible=false;lightAge=Infinity;shotLight.intensity=0;}
  let fi=0,ci=0,bi=0;
  function cloud(p,d){const c=clouds[ci++%clouds.length];c.p.copy(p);c.vel.copy(d).multiplyScalar(.48).add(v((rnd()-.5)*.24,.16+rnd()*.18,(rnd()-.5)*.24));c.t=c.total=.66+rnd()*.20;c.s=.13+rnd()*.045;c.angle=rnd()*Math.PI*2;c.m.material.color.set(0xc2bcb1);c.m.material.opacity=.49;c.m.position.copy(p);c.m.scale.setScalar(c.s);c.m.visible=true;}
- function muzzle(p,d){if(advancedEnabled){advanced.muzzle(p,d);shotLight.position.copy(p);shotLight.intensity=10;lightAge=-1;for(let i=0;i<3;i++)cloud(p,d);return;}const f=flashes[fi++%flashes.length];f.age=-1;f.g.position.copy(p).addScaledVector(d,.035);f.g.quaternion.setFromUnitVectors(z,d);f.g.rotateZ(rnd()*6.28);f.g.scale.setScalar(FLASH_SCALE*(.9+rnd()*.24));f.g.visible=true;shotLight.position.copy(p);shotLight.intensity=10;lightAge=-1;for(const m of f.mats)m.opacity=1;for(let i=0;i<3;i++)cloud(p,d);}
+ function muzzle(p,d,near=true){if(advancedEnabled&&near){advanced.muzzle(p,d);shotLight.position.copy(p);shotLight.intensity=10;lightAge=-1;for(let i=0;i<3;i++)cloud(p,d);return;}const f=flashes[fi++%flashes.length];f.age=-1;f.g.position.copy(p).addScaledVector(d,.035);f.g.quaternion.setFromUnitVectors(z,d);f.g.rotateZ(rnd()*6.28);f.g.scale.setScalar(FLASH_SCALE*(.9+rnd()*.24));f.g.visible=true;shotLight.position.copy(p);shotLight.intensity=10;lightAge=-1;for(const m of f.mats)m.opacity=1;for(let i=0;i<3;i++)cloud(p,d);}
  function hit(p,d){const b=splats[bi++%splats.length];b.p.copy(p);b.vel.copy(d).multiplyScalar(.26);b.age=-1;b.total=BLOOD_LIFE;b.s=.66+rnd()*.16;b.g.position.copy(p);b.g.quaternion.setFromUnitVectors(z,d);b.g.rotateZ(rnd()*6.28);b.g.scale.setScalar(b.s);b.mat.alphaMap=frames[0];b.mat.opacity=.9;b.g.visible=true;}
  function update(dt){
  advanced.update(dt);
@@ -34,5 +34,5 @@ export function createStyledVFX(T,scene,camera){
 
  for(const c of clouds)if(c.t>0){c.t=Math.max(0,c.t-dt);const k=c.t/c.total;c.m.visible=c.t>0;if(!c.t)continue;c.p.addScaledVector(c.vel,dt);c.m.position.copy(c.p);c.m.quaternion.copy(camera.quaternion);c.m.rotateZ(c.angle);c.m.scale.setScalar(c.s*(1+(1-k)*2));c.m.material.opacity=k*.49;}
  for(const b of splats)if(b.g.visible){const first=b.age<0;b.age=flashFrame(b.age,dt);const k=Math.max(0,1-b.age/b.total);b.g.visible=k>0;if(!k)continue;if(!first)b.p.addScaledVector(b.vel,dt*.65);b.g.position.copy(b.p);b.g.scale.setScalar(b.s*(1+(1-k)*.65));b.mat.alphaMap=frames[Math.min(2,Math.floor((1-k)*3))];b.mat.opacity=Math.min(1,k*2.7)*.95;}}
- return {muzzle,hit,update,setAdvanced};
+ return {muzzle,hit,update,setAdvanced,stats:()=>({flash:flashes.filter(f=>f.g.visible).length+advanced.count(),smoke:clouds.filter(c=>c.t>0).length,splats:splats.filter(b=>b.g.visible).length})};
 }

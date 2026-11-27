@@ -52,7 +52,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
   if(debug){renderer.getDrawingBufferSize(bufferSize);renderStats={prep,sceneMs,shadowMs,shadowCalls,shadowTriangles,postMs:Math.max(0,performance.now()-start-sceneMs),sceneCalls,sceneTriangles,postCalls:Math.max(0,renderer.info.render.calls-sceneCalls),width:bufferSize.x,height:bufferSize.y};}
  }
  function diagnostics(){return {...renderStats,vegetation:vegetation?.stats(),shadow:localShadows?.stats()||{radius:0,resolution:sun.shadow.mapSize.x}};}
- function setQuality(index){quality=normalizeGraphics({quality:index}).quality;apply();persist();}
+ function setQuality(index){quality=normalizeGraphics({quality:index}).quality;apply();onEffectsChange(preferences());persist();}
  function cycleQuality(){setQuality((quality+1)%QUALITIES.length);}
  function setStyle(index){style=normalizeGraphics({style:index}).style;apply();persist();}
  function cycleStyle(){setStyle((style+1)%STYLES.length);}

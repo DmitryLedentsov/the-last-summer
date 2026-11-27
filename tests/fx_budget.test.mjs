@@ -1,0 +1,3 @@
+import assert from 'node:assert/strict';
+import {createMarkStore,withinRange} from '../fx_budget.js';
+const s=createMarkStore(2,65),p={x:0,y:0,z:0};s.add(p,.3,0);s.add({x:100,y:0,z:0},.3,0);assert.equal(s.visible(p,35).length,1);s.add(p,.3,0);assert.equal(s.count,2);assert.equal(s.visible(p,35)[0].id,3);s.advance(65);assert.equal(s.count,0);console.log('PASS bounded shared mark store, distance and expiry');
