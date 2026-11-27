@@ -39,7 +39,7 @@ const colliders=[],grid=createSpatialGrid(),treeBatches=[],interactions=[],rnd=s
 const add=c=>{colliders.push(c);grid.insert(c);},free=(x,z,r=.32)=>!grid.at(x,z).some(c=>hitsCollider(c,x,z,r)),canEnter=(x,z)=>canWade(height,x,z);
 function fit(o,h,correction=0,w=null,d=null){const wrapper=new THREE.Group(),inner=new THREE.Group(),pivot=new THREE.Group();pivot.add(o);pivot.rotation.y=correction;inner.add(pivot);wrapper.add(inner);wrapper.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(pivot,true),size=b.getSize(new THREE.Vector3()),center=b.getCenter(new THREE.Vector3()),s=h/Math.max(.001,size.y);inner.scale.set(w==null?s:w/Math.max(.001,size.x),s,d==null?s:d/Math.max(.001,size.z));inner.position.set(-center.x*inner.scale.x,-b.min.y*s,-center.z*inner.scale.z);wrapper.updateMatrixWorld(true);return wrapper;}
 function place(o,x,z,a=0,s=1){o.position.set(x,height(x,z),z);o.rotation.y=a;o.scale.setScalar(s);scene.add(o);o.updateMatrixWorld(true);return o;}
-function aabb(o){const b=new THREE.Box3().setFromObject(o,true);add({x0:b.min.x,x1:b.max.x,z0:b.min.z,z1:b.max.z,top:b.max.y});}
+function aabb(o,surface='concrete'){const b=new THREE.Box3().setFromObject(o,true);add({x0:b.min.x,x1:b.max.x,z0:b.min.z,z1:b.max.z,top:b.max.y,surface});}
 for(const h of HOUSES){const o=houses[h.model].clone(true);o.traverse(n=>{if(n.isMesh){n.castShadow=n.receiveShadow=true;for(const m of Array.isArray(n.material)?n.material:[n.material])if(m?.map)tune(m.map);}});aabb(place(fit(o,h.h,h.correction,h.w,h.d),h.x,h.z,h.rot));}
 const specs={BirchTree1:['BirchTree',9.4],BirchTree2:['BirchTree',9.9],Tree1:['Tree',8.4],Tree2:['Tree',7.9],Tree4:['Tree',7.2],Bush1:['Bush',.74],Bush2:['Bush',.92],Bush3:['Bush',.78],Grass1:['Misc',.68],Grass2:['Misc',1.04],Rock1:['MossyRock',.42],Rock2:['MossyRock',.65],Lantern:['Misc',.54],Sign1:['Signs1',1.5],Sign2:['Signs1',1.5],Sign3:['Signs1',1.5],Sign4:['Signs1',1.5],Cabin:['LogCabbin',3.2],Mushroom1:['Misc',.21],Mushroom2:['Misc',.28],Mushroom3:['Misc',.23]};
 async function swampModel(n,[map,h]){const r=await fetch(asset('swamp/meshes/'+n+'.fbx.deflate'));if(!r.ok)throw Error('Missing swamp model '+n);const raw=unzlibSync(new Uint8Array(await r.arrayBuffer())),o=fbx.parse(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength),'');// Exported scene transforms are Z-up (despite FBX header). Normalize before measuring.
@@ -80,7 +80,7 @@ for(const [n,count] of [['Grass1',22000],['Grass2',15000],['Bush1',1050],['Bush2
  }
  if(rock)batch(models[n],points,true);else pendingVegetation.push([models[n],points]);
 }
-const cabin=place(models.Cabin.clone(true),96,-63,.7);aabb(cabin);
+const cabin=place(models.Cabin.clone(true),96,-63,.7);aabb(cabin,'wood');
 for(const [i,x,z,a] of [[1,-49,66,.2],[2,44,31,1.1],[3,40,-15,-.5],[4,88,-43,.8]])place(models['Sign'+i].clone(true),x,z,a);
 const glows=[];const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=64;const ctx=glowCanvas.getContext('2d'),gradient=ctx.createRadialGradient(32,32,1,32,32,31);gradient.addColorStop(0,'rgba(255,255,255,1)');gradient.addColorStop(.24,'rgba(255,255,255,.55)');gradient.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=gradient;ctx.fillRect(0,0,64,64);const halo=new THREE.CanvasTexture(glowCanvas);
 function glow(x,z,y,color,anomaly=false){const m=new THREE.Sprite(new THREE.SpriteMaterial({map:halo,color,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));m.position.set(x,y,z);m.scale.setScalar(anomaly?1.4:2.2);scene.add(m);let light=null;if(anomaly){light=new THREE.PointLight(color,18,8,2);light.position.copy(m.position);light.castShadow=false;scene.add(light);}glows.push({m,light,phase:rnd()*6.28});}
@@ -91,4 +91,4 @@ function updateEnvironment(dt,now){for(const o of glows){const t=now*.001+o.phas
 const chunkedTrees=splitStaticInstances(THREE,scene,treeBatches,64),physics=createWorldData({id:'swamp',revision:'074-static',level,field,colliders});
 for(const [model,points] of pendingVegetation)vegetation.add(model,points);
 if(!free(...level.spawn,.48)||!canEnter(...level.spawn))throw Error('Swamp spawn blocked');
-export const world={THREE,scene,camera,renderer,level,height,free,canEnter,colliders,terrain,treeBatches:chunkedTrees,sun,extraTextures:Object.values(textures),interactions,vegetation,physics,localShadowRadius:36,updateEnvironment};
+export const world={THREE,scene,camera,renderer,level,height,free,canEnter,colliders,terrain,treeBatches:chunkedTrees,sun,extraTextures:Object.values(textures),interactions,vegetation,physics,localShadowRadius:36,waterLevel:WATER,updateEnvironment};
