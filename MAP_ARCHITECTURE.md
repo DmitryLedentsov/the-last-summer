@@ -32,3 +32,6 @@ Swamp only: finer shared heightfield, multi-scale peat banks and hollows, footpa
 
 ## 07.6
 Default graphics: DIORAMA LEGACY / MEDIUM / 52m ground-cover range; settings panel and localStorage persistence. Quality remains independent of the vegetation radius. Swamp anomaly sprites and point lights are stationary, individually colored and do not cast shadows. Blood hits use only BloodSplat (no BloodSmoke), larger and slower; muzzle flash is larger and longer.
+
+## 07.8 combat presentation
+Directional impact overlays and additional grip recoil are applied only in rendering and restored afterward; original combat rule timings, hit shapes and bullet physics remain. Corpses lean and travel in the direction of hit plus pre-death movement with terrain-bounded travel and a settling sound. Brass casing pool (40) is cosmetic. Synthetic shot/action/body/surface audio, explicit metal/concrete/wood tags on relevant swamp/hillside props and water contact classification on the swamp. No hitstop. The original Malorian mesh is one piece: no separate slide animation.
