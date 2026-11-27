@@ -1,3 +1,4 @@
+import './asset-cache.js?v=081';
 import {MAPS,resolveMap,populationFor} from './map_registry.js?v=071';
 import {startSurvival} from './survival_combat.js?v=081';
 const params=new URLSearchParams(location.search),id=resolveMap(params.get('map')||params.get('level')),map=MAPS[id];
@@ -7,4 +8,5 @@ if(!world||typeof world.height!=='function'||!Array.isArray(world.colliders)||!w
 document.querySelector('#title').textContent=map.title;
 document.querySelector('#subtitle').textContent='THE LAST SUMMER / '+map.subtitle;
 document.title=map.title+' — Последнее лето';
-await startSurvival({...world,population:populationFor(id)});
+const runtime=await startSurvival({...world,population:populationFor(id)});
+window.addEventListener('pagehide',event=>{if(!event.persisted)runtime.dispose();});

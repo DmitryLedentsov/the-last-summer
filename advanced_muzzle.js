@@ -67,11 +67,11 @@ export function createAdvancedMuzzle(T,scene,load,front,side){
   for(const l of shot.layers){l.spin.rotation.z=random()*Math.PI*2;l.mesh.scale.setScalar(l.size*(.85+random()*.3));l.mesh.visible=l.delay===0;l.m.uniforms.progress.value=flashParticle(l.layer,0);l.m.uniforms.elapsed.value=0;}
   shot.glow.visible=true;shot.glow.material.uniforms.alpha.value=1;shot.group.visible=true;
  }
- function update(dt){for(const shot of pool){if(!shot.group.visible)continue;shot.age=shot.age<0?0:shot.age+Math.max(0,dt);
+ function update(dt,visible=()=>true){for(const shot of pool){if(!Number.isFinite(shot.age))continue;shot.age=shot.age<0?0:shot.age+Math.max(0,dt);
   for(const l of shot.layers){const age=shot.age-l.delay,t=age/ADVANCED_FLASH.life;l.mesh.visible=age>=0&&t<1;if(l.mesh.visible){l.m.uniforms.progress.value=flashParticle(l.layer,t);l.m.uniforms.elapsed.value=age;}}
   shot.glow.visible=shot.age<ADVANCED_FLASH.glowLife;shot.glow.material.uniforms.alpha.value=Math.pow(clamp(1-shot.age/ADVANCED_FLASH.glowLife),1.5);
-  shot.group.visible=shot.glow.visible||shot.layers.some(l=>l.mesh.visible||shot.age<l.delay);
+  const active=shot.glow.visible||shot.layers.some(l=>l.mesh.visible||shot.age<l.delay);shot.group.visible=active&&visible(shot.group.position);if(!active)shot.age=Infinity;
  }}
- function clear(){for(const shot of pool)shot.group.visible=false;}
+ function clear(){for(const shot of pool){shot.group.visible=false;shot.age=Infinity;}}
  return {muzzle,update,clear,count:()=>pool.filter(s=>s.group.visible).length};
 }
