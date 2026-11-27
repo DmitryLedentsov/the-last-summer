@@ -11,7 +11,7 @@ export function createStyledVFX(T,scene,camera){
  const front=[load('flash_front_02.png'),load('flash_front_03.png')],side=[load('flash_side_02.png'),load('flash_side_03.png')],smoke=load('Smoke.png'),blood=load('BloodSplat.png',()=>{for(const t of frames)t.needsUpdate=true;});
  const plane=new T.PlaneGeometry(1,1),v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z),z=v(0,0,1);
  const flashMat=map=>{const m=new T.MeshBasicMaterial({color:0xffe6aa,alphaMap:map,transparent:true,opacity:1,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending,toneMapped:false,fog:false});m.onBeforeCompile=s=>{s.fragmentShader=s.fragmentShader.replace('#include <alphamap_fragment>','diffuseColor.a *= smoothstep(0.015,0.42,texture2D(alphaMap,vAlphaMapUv).g);');};return m;};
- const shotLight=new T.PointLight(0xffb66e,0,4,2);scene.add(shotLight);let lightAge=Infinity;
+ const shotLight=new T.PointLight(0xffb66e,0,4,2);shotLight.name='muzzle-light';scene.add(shotLight);let lightAge=Infinity;
  const flashes=Array.from({length:8},(_,i)=>{const g=new T.Group(),mats=[flashMat(front[i%2]),flashMat(side[i%2])];const a=new T.Mesh(plane,mats[0]);a.scale.set(.32,.32,1);a.position.z=.045;g.add(a);
  for(let j=0;j<3;j++){const b=new T.Mesh(plane,mats[1]);b.rotation.set(0,-Math.PI/2,0);b.scale.set(.58,.27,1);b.position.z=.28;const spin=new T.Group();spin.rotation.z=j*Math.PI/3;spin.add(b);g.add(spin);}
  g.visible=false;scene.add(g);return {g,mats,age:Infinity};});

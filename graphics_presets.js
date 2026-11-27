@@ -1,3 +1,5 @@
+import {createTerrainLOD} from './terrain_lod.js?v=081';
+import {createLightBudget} from './light_budget.js?v=081';
 import {createSceneStyles} from './scene_style.js?v=079';
 import {createPipeline} from './graphics_pipeline_legacy.js?v=069';
 import {createLocalShadows} from './local_shadows.js?v=069';
@@ -16,7 +18,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  const bufferSize=new T.Vector2(),applyTextures=createTextureProfiles(T,collectTextures(scene,extraTextures),renderer.capabilities.getMaxAnisotropy());
  const looks=createSceneStyles(T,{scene,renderer,sun,actors,height});
  const pipeline=createPipeline(T,renderer,scene,camera),localShadows=localShadowRadius?createLocalShadows(T,scene,sun,localShadowRadius):null;
- let renderStats=null;
+ const terrainLOD=createTerrainLOD(T,scene,terrain),lightBudget=createLightBudget(T,scene);let renderStats=null,lastShadow=-Infinity;renderer.shadowMap.autoUpdate=false;
  function resize(){
   const cfg=graphicsSettings(style,quality);
   const ratio=Math.min(globalThis.devicePixelRatio||1,cfg.s.retro?1:cfg.q.dpr)*cfg.scale;
@@ -33,7 +35,8 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  }
  function render(mode=1,zoom=false,debug=false){
   const t=debug?performance.now():0;
-  vegetation?.update(vegetationOrigin||camera.position,quality,grassDistance);localShadows?.update(vegetationOrigin||camera.position);looks.update();
+  vegetation?.update(vegetationOrigin||camera.position,quality,grassDistance);localShadows?.update(vegetationOrigin||camera.position);looks.update();terrainLOD?.update(vegetationOrigin||camera.position,quality);lightBudget?.update(vegetationOrigin||camera.position,quality);
+  const now=performance.now(),interval=[1000/15,1000/30,1000/60,0][quality];if(now-lastShadow>=interval){renderer.shadowMap.needsUpdate=true;lastShadow=now;}
   const cfg=graphicsSettings(style,quality,{mode,zoom}),prep=debug?performance.now()-t:0;
   let sceneMs=0,sceneCalls=0,sceneTriangles=0,shadowMs=0,shadowCalls=0,shadowTriangles=0;
   const markScene=debug?ms=>{sceneMs=ms;sceneCalls=renderer.info.render.calls;sceneTriangles=renderer.info.render.triangles;}:null;
@@ -51,7 +54,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
   finally{if(originalShadowRender)shadowMap.render=originalShadowRender;renderer.setRenderTarget(null);renderer.info.autoReset=oldAuto;}
   if(debug){renderer.getDrawingBufferSize(bufferSize);renderStats={prep,sceneMs,shadowMs,shadowCalls,shadowTriangles,postMs:Math.max(0,performance.now()-start-sceneMs),sceneCalls,sceneTriangles,postCalls:Math.max(0,renderer.info.render.calls-sceneCalls),width:bufferSize.x,height:bufferSize.y};}
  }
- function diagnostics(){return {...renderStats,vegetation:vegetation?.stats(),shadow:localShadows?.stats()||{radius:0,resolution:sun.shadow.mapSize.x}};}
+ function diagnostics(){return {...renderStats,vegetation:vegetation?.stats(),terrain:terrainLOD?.stats(),lights:lightBudget?.stats(),shadow:localShadows?.stats()||{radius:0,resolution:sun.shadow.mapSize.x}};}
  function setQuality(index){quality=normalizeGraphics({quality:index}).quality;apply();onEffectsChange(preferences());persist();}
  function cycleQuality(){setQuality((quality+1)%QUALITIES.length);}
  function setStyle(index){style=normalizeGraphics({style:index}).style;apply();persist();}

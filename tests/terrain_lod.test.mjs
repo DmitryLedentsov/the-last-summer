@@ -1,0 +1,3 @@
+import assert from 'node:assert/strict';
+import {chunkIndices} from '../terrain_lod.js';
+const full=chunkIndices(24,24,1),coarse=chunkIndices(24,24,4);assert.equal(full.length,24*24*6);assert.ok(coarse.length<full.length);const edges=new Set(coarse);for(let i=0;i<=24;i++)for(const n of [i,24*25+i,i*25,i*25+24])assert.ok(edges.has(n));for(const i of coarse)assert.ok(i>=0&&i<625);console.log('PASS terrain reduction and exact border vertices');
