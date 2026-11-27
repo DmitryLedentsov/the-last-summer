@@ -7,6 +7,7 @@ export const MAPS=Object.freeze({
  mindbreak:{title:'Распад сознания',subtitle:'После сна',builder:'mindbreak',bots:6,monsters:12},
  yard:{title:'Тихий квартал',subtitle:'Август. После семи.',builder:'panel',bots:6,monsters:10},
  outskirts:{title:'Пустырь у кольца',subtitle:'Конечная. Перед дождём.',builder:'panel',bots:6,monsters:10},
+ swamp:{title:'Затопленный квартал',subtitle:'Вода помнит дорогу',builder:'swamp',bots:5,monsters:12},
  demo:{title:'До темноты',subtitle:'PVPVE SANDBOX',builder:'forest',bots:6,monsters:12}
 });
 export function resolveMap(value){return Object.hasOwn(MAPS,value)?value:'demo';}

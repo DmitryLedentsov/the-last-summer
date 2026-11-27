@@ -33,3 +33,7 @@
 ## Производные материалы v0.3
 
 `derived/sunset.jpg`, `derived/mist.jpg`, `derived/twilight.jpg` — цветокоррекция исходного DAYSKY.hdr для новых локаций.
+
+## 07.1
+- `curated/swamp/`: ABERRANT CURSE PSX Forest assets, supplied by the user as redistributable. FBX files are losslessly zlib-compressed; original textures. Credit: ABERRANT CURSE.
+- `curated/vfx/`: Binbun Muzzle Flash VFX (selected reduced-resolution masks) and knowercoder BloodFX (BloodSplat, Smoke, MIT license included). Engine-specific project files are not included.

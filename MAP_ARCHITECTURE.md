@@ -20,3 +20,6 @@ Detailed FPS separates shadow submission (included in scene totals), scene, post
 
 ## 07.0: vegetation range calibration
 Low retains 06.9: 12/20 m. Medium 18/34, High 24/46, Ultra 30/60 m (distance to 12 m chunk centers; 1.5 m hysteresis and movement threshold). Mid density 35/35/30/25%. Quality changes refresh immediately even without movement and discard hysteresis from previous quality. F3 detailed panel reports current LOD radii. All solid scenery remains rendered by frustum culling only; no distance-based removal of collision objects. Tree batch instance/point indices, colors, shadow material and culling settings are retained. The local shadow radius, terrain, colliders, combat and Diorama remain unchanged. Ranges are a first-pass budget estimate from one mobile screenshot, not measured optimal values. Validate across town/forest/summit and all presets before further tuning.
+
+## 07.1
+Separate `swamp` map, existing `mist` unchanged. Swamp uses the existing vegetation LOD, local shadow radius and shared collision/physical world descriptor. `styled_vfx.js` implements compact world-space muzzle flashes, short blood atlas bursts and smoke; existing stains, bullets, combat cadence, input and locomotion are retained.
