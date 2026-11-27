@@ -45,8 +45,8 @@ export function createPipeline(T,renderer,scene,camera){
   output=new OutputPass();output.renderToScreen=true;
  }
  function pass(mat,dest){quad.material=mat;renderer.setRenderTarget(dest);renderer.render(screen,screenCamera);}
- function render(cfg,w,h){
-  init(w,h);renderer.setRenderTarget(beauty);renderer.render(scene,camera);
+ function render(cfg,w,h,onScene=null){
+  init(w,h);renderer.setRenderTarget(beauty);const start=onScene?performance.now():0;renderer.render(scene,camera);if(onScene)onScene(performance.now()-start);
   let src=beauty;
   // Use real scene depth (including foliage alpha cutouts) instead of re-rendering an opaque normal prepass.
   if(cfg.ao&&hdr){

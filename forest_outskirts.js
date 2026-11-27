@@ -4,9 +4,10 @@ import {RGBELoader} from 'three/addons/loaders/RGBELoader.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
 import {createSpatialGrid} from './spatial_grid.js?v=068';
 import {createWorldData} from './world_data.js?v=068';
-import {createVegetationSystem,seededRandom} from './vegetation_system.js?v=068';
+import {createVegetationSystem,seededRandom} from './vegetation_system.js?v=069';
 import {biomeAt,plantChance} from './hillside_biomes.js?v=068';
-import {splitStaticInstances} from './duel_perf.js?v=045';
+import {splitStaticInstances} from './duel_perf.js?v=069';
+import {batchStaticProps} from './static_batch.js?v=069';
 import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
 import {HILLSIDE,SERPENTINE,groundHeight,roadAt,roadWeight,trailWeight,cityDistance,reserveTree,forestDensity} from './hillside_layout.js?v=067';
 
@@ -136,15 +137,16 @@ const trees=['PSX_Tree1','PSX_Tree2','PSX_Tree3','PSX_Tree4'].map(n=>template(fo
 for(let n=0;n<6300&&centers.length<440;n++){const x=(rnd()-.5)*208,z=(rnd()-.5)*208,y=height(x,z);if(reserveTree(x,z)||!free(x,z,1.2)||centers.some(p=>Math.hypot(x-p[0],z-p[1])<3.4))continue;const density=forestDensity(x,z,y);if(rnd()>density)continue;const j=Math.floor(rnd()*trees.length);if(!trees[j])continue;const s=.65+rnd()*.7,a=rnd()*Math.PI*2;centers.push([x,z]);treePoints[j].push([x,z,s,a]);addCollider(combatTreeCollider(woodShapes[j],x,z,s,a,y-.025));}
 trees.forEach((t,i)=>batch(t,treePoints[i],true,true));
 const grassTemplate=template(forest,'PSX_Grass',.42),flower=template(forest,'PSX_Dandelion',.32),bush=template(nature,'Bush',.85),rock=template(forest,'PSX_Rock',.85);
-for(const [t,count,lo,hi,kind] of [[grassTemplate,9000,.55,1.45,'grass'],[flower,1000,.65,1.2,'flower'],[bush,420,.7,1.6,'bush'],[rock,310,.65,2.2,'rock']]){if(!t)continue;const points=[];for(let i=0;i<count*3&&points.length<count;i++){const x=(rnd()-.5)*210,z=(rnd()-.5)*210,y=height(x,z);if(Math.hypot(x-level.spawn[0],z-level.spawn[1])<3||roadAt(x,z).distance<3.6||trailWeight(x,z)>.5||!free(x,z,kind==='rock'?.55:.12)||Math.hypot(x-60,z+67)<6)continue;if(kind!=='rock'&&y>26&&rnd()<.7)continue;if(cityDistance(x,z)<1&&rnd()<.85)continue;if(kind==='grass'&&rnd()>.28+.72*forestDensity(x,z,y))continue;const s=lo+(hi-lo)*rnd(),a=rnd()*Math.PI*2;points.push([x,z,s,a]);if(kind==='rock'&&s>1.35)addCollider({x,z,r:.30*s,top:y+.7*s});}if(kind==='bush'||kind==='rock')batch(t,points,kind==='rock');}
+for(const [t,count,lo,hi,kind] of [[grassTemplate,9000,.55,1.45,'grass'],[flower,1000,.65,1.2,'flower'],[bush,420,.7,1.6,'bush'],[rock,310,.65,2.2,'rock']]){if(!t)continue;const points=[];for(let i=0;i<count*3&&points.length<count;i++){const x=(rnd()-.5)*210,z=(rnd()-.5)*210,y=height(x,z);if(Math.hypot(x-level.spawn[0],z-level.spawn[1])<3||roadAt(x,z).distance<3.6||trailWeight(x,z)>.5||!free(x,z,kind==='rock'?.55:.12)||Math.hypot(x-60,z+67)<6)continue;if(kind!=='rock'&&y>26&&rnd()<.7)continue;if(cityDistance(x,z)<1&&rnd()<.85)continue;if(kind==='grass'&&rnd()>.28+.72*forestDensity(x,z,y))continue;const s=lo+(hi-lo)*rnd(),a=rnd()*Math.PI*2;points.push([x,z,s,a]);if(kind==='rock'&&s>1.35)addCollider({x,z,r:.30*s,top:y+.7*s});}if(kind==='rock')batch(t,points,true);else if(kind==='bush')batch(t,points.filter((_,i)=>i%3!==0),false);}
 // Separate visual seed: new density and quality cannot alter the physical rock/tree layout.
-const chunkedTrees=splitStaticInstances(THREE,scene,treeBatches);
+const staticBatchStats=batchStaticProps(THREE,scene);
+const chunkedTrees=splitStaticInstances(THREE,scene,treeBatches,64);
 const physics=createWorldData({id:'sunset',revision:'067-static',level,field,colliders});
 const vegetation=createVegetationSystem(THREE,scene,height),plantRandom=seededRandom(680931);
 const covers=[
  [grassTemplate,23000,.70,1.60,'grass'],[template(nature,'Grass',.40),10000,.65,1.4,'naturegrass'],
- [template(nature,'Plant',.46),4500,.65,1.4,'plant'],[template(forest,'PSX_Reed',.85),4200,.62,1.25,'reed'],
- [flower,2300,.55,1.3,'flower'],[template(forest,'PSX_Lavender',.62),1600,.6,1.25,'lavender']
+ [template(forest,'PSX_Reed',.85),8700,.62,1.25,'reed'],
+ [flower,2300,.55,1.3,'flower'],[template(forest,'PSX_Lavender',.62),800,.6,1.25,'lavender']
 ];
 for(const [t,count,lo,hi,kind] of covers){
  if(!t){console.warn('Ground cover mesh missing:',kind);continue;}
@@ -161,4 +163,4 @@ for(const [t,count,lo,hi,kind] of covers){
 }
 scene.updateMatrixWorld(true);if(!free(...level.spawn,.48))throw Error('Hillside spawn obstructed');
 for(const child of scene.children)child.traverse(o=>{o.matrixAutoUpdate=false;});
-export const world={THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches:chunkedTrees,sun,extraTextures:[earth,gravel,asphalt,...biomeMaps],interactions,vegetation,physics};
+export const world={THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches:chunkedTrees,sun,extraTextures:[earth,gravel,asphalt,...biomeMaps],interactions,vegetation,physics,localShadowRadius:36,staticBatchStats};

@@ -4,13 +4,13 @@ export function chunkIndices(points,size=36){
  for(let i=0;i<points.length;i++){const [x,z]=points[i],key=Math.floor(x/size)+':'+Math.floor(z/size);let list=chunks.get(key);if(!list)chunks.set(key,list=[]);list.push(i);}
  return [...chunks.values()];
 }
-export function splitStaticInstances(T,scene,treeBatches){
+export function splitStaticInstances(T,scene,treeBatches,size=36){
  const trees=new Map(treeBatches.map(b=>[b.mesh,b.points])),result=[];
  for(const mesh of [...scene.children]){
   if(!mesh.isInstancedMesh||mesh.count<32){if(trees.has(mesh))result.push({mesh,points:trees.get(mesh)});continue;}
   const matrices=[],points=[],m=new T.Matrix4();
   for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,m);matrices.push(m.clone());points.push([m.elements[12],m.elements[14]]);}
-  const groups=chunkIndices(points,36);
+  const groups=chunkIndices(points,size);
   if(groups.length<2){if(trees.has(mesh))result.push({mesh,points:trees.get(mesh)});continue;}
   for(const ids of groups){
    const b=new T.InstancedMesh(mesh.geometry,mesh.material,ids.length);
@@ -84,19 +84,39 @@ export function steeringChoice(heading,turn,stuck,velocity,lookDistance,p,actor,
  return best;
 }
 export function createProfiler(renderer,element){
- let visible=false,frames=0,elapsed=0,sim=0,submit=0,calls=0,triangles=0,frameTimes=[],gpuMs=null,query=null,active=false;
+ const output=element.querySelector('#perftext')||element,check=element.querySelector('#perfdetail');
+ let visible=false,detail=false,frames=0,elapsed=0,sim=0,submit=0,calls=0,triangles=0,frameTimes=[],gpuMs=null,query=null,active=false,totals={},latest=null;
  const gl=renderer.getContext(),ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
  function discard(){if(query&&!active){gl.deleteQuery(query);query=null;}}
- function toggle(){visible=!visible;element.hidden=!visible;frames=elapsed=sim=submit=calls=triangles=0;frameTimes=[];gpuMs=null;discard();}
+ function reset(){frames=elapsed=sim=submit=calls=triangles=0;frameTimes=[];totals={};latest=null;}
+ function toggle(){visible=!visible;element.hidden=!visible;reset();gpuMs=null;discard();if(visible)output.textContent='FPS · сбор данных…';}
+ function setDetail(value){detail=!!value;if(check)check.checked=detail;reset();if(visible)output.textContent='FPS · сбор данных…';}
+ function toggleDetail(){if(!visible)toggle();setDetail(!detail);}
+ if(check){check.checked=false;check.addEventListener('change',()=>setDetail(check.checked));for(const event of ['pointerdown','mousedown','mouseup','click'])check.parentElement.addEventListener(event,e=>e.stopPropagation());}
  function beforeRender(){
   if(!visible||!ext)return;
   if(query&&gl.getQueryParameter(query,gl.QUERY_RESULT_AVAILABLE)){if(!gl.getParameter(ext.GPU_DISJOINT_EXT))gpuMs=gl.getQueryParameter(query,gl.QUERY_RESULT)/1e6;else gpuMs=null;discard();}
   if(!query&&frames%8===0){query=gl.createQuery();if(query){gl.beginQuery(ext.TIME_ELAPSED_EXT,query);active=true;}}
  }
  function afterRender(){if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);active=false;}}
- function sample(dt,simulationMs,renderMs,quality){
+ const num=n=>Math.round(n).toLocaleString('en-US');
+ function sample(dt,simulationMs,renderMs,quality,data=null){
   if(!visible)return;frames++;elapsed+=dt;sim+=simulationMs;submit+=renderMs;calls+=renderer.info.render.calls;triangles+=renderer.info.render.triangles;frameTimes.push(dt*1000);
-  if(elapsed>=.6){const sorted=frameTimes.slice().sort((a,b)=>a-b),p95=sorted[Math.ceil(sorted.length*.95)-1];element.textContent=Math.round(frames/elapsed)+' FPS  |  FRAME P95 '+p95.toFixed(1)+' ms\nSIM '+(sim/frames).toFixed(1)+' ms  |  SUBMIT '+(submit/frames).toFixed(1)+' ms  |  GPU '+(gpuMs===null?'n/a':gpuMs.toFixed(1)+' ms')+'\nDRAW '+Math.round(calls/frames)+'  |  TRI '+Math.round(triangles/frames).toLocaleString('en-US')+'  |  '+quality+' / F4';frames=elapsed=sim=submit=calls=triangles=0;frameTimes=[];}
+  if(detail&&data){latest=data;for(const k of ['steps','player','botAI','botMove','monster','respawn','fx','sim'])totals[k]=(totals[k]||0)+(data[k]||0);for(const k of ['prep','sceneMs','postMs','sceneCalls','sceneTriangles','postCalls','shadowMs','shadowCalls','shadowTriangles'])totals[k]=(totals[k]||0)+(data.graphics?.[k]||0);}
+  if(elapsed>=.6){const sorted=frameTimes.slice().sort((a,b)=>a-b),p95=sorted[Math.ceil(sorted.length*.95)-1],avg=k=>((totals[k]||0)/frames).toFixed(1),ms=n=>(n/frames).toFixed(1);
+   let msg=Math.round(frames/elapsed)+' FPS | P95 '+p95.toFixed(1)+' ms | '+quality+'\nSIM+PRE '+ms(sim)+' | SUBMIT '+ms(submit)+' | GPU '+(gpuMs===null?'n/a':gpuMs.toFixed(1))+' ms\nDRAW '+num(calls/frames)+' | TRI '+num(triangles/frames);
+   if(detail&&latest){const x=latest,g=x.graphics||{},v=g.vegetation,s=g.shadow,b=x.staticBatchStats;
+    msg+='\n06.9 '+x.map+' | V'+x.view+(x.zoom?' ZOOM':'')+' | '+g.width+'x'+g.height;
+    msg+='\nTICKS '+avg('steps')+' | SIM '+avg('sim')+' | CAM/HUD '+Math.max(0,(sim-(totals.sim||0))/frames).toFixed(1)+' ms';
+    msg+='\nPLAYER '+avg('player')+' | BOT AI '+avg('botAI')+' | BOT POSE/MOVE '+avg('botMove');
+    msg+='\nMONSTERS '+avg('monster')+' | RESPAWN '+avg('respawn')+' | FX '+avg('fx')+' ms';
+    msg+='\nRENDER PRE '+avg('prep')+' | SCENE '+avg('sceneMs')+' | POST '+avg('postMs')+' ms';
+    msg+='\nSHADOW CPU '+avg('shadowMs')+' ms | DRAW '+num((totals.shadowCalls||0)/frames)+' | TRI '+num((totals.shadowTriangles||0)/frames);
+    msg+='\nSCENE DRAW '+num((totals.sceneCalls||0)/frames)+' | POST '+num((totals.postCalls||0)/frames)+' | TRI '+num((totals.sceneTriangles||0)/frames);
+    msg+='\nACTORS '+x.actors+' | CORPSES '+x.corpses+' | BULLETS '+x.bullets+' | COL '+x.colliders;
+    if(v)msg+='\nGRASS '+num(v.active)+'/'+num(v.total)+' | BATCH '+v.activeChunks+'/'+v.chunks+' | MESH '+v.activeMeshes;
+    if(s)msg+='\nSHADOW '+(s.radius?'LOCAL '+s.radius+'m':'MAP')+' / '+s.resolution+(b?' | STATIC SAVED '+b.saved:'');
+   }output.textContent=msg;reset();}
  }
- return {toggle,beforeRender,afterRender,sample};
+ return {toggle,toggleDetail,beforeRender,afterRender,sample,get detailed(){return visible&&detail;}};
 }
