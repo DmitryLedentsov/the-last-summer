@@ -1,5 +1,5 @@
 import {MAPS,resolveMap,populationFor} from './map_registry.js?v=071';
-import {startSurvival} from './survival_combat.js?v=076';
+import {startSurvival} from './survival_combat.js?v=077';
 const params=new URLSearchParams(location.search),id=resolveMap(params.get('map')||params.get('level')),map=MAPS[id];
 const loaders={swamp:()=>import('./swamp_microdistrict.js?v=076'),hillside:()=>import('./forest_outskirts.js?v=076'),forest:()=>import('./survival_map.js?v=076'),panel:()=>import('./landscape_panel.js?v=076'),landscape:()=>import('./landscape.js?v=076'),courtyard:()=>import('./game.js?v=076'),mindbreak:()=>import('./mindbreak.js?v=076')};
 const {world}=await loaders[map.builder]();

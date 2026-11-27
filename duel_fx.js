@@ -1,5 +1,5 @@
 // Bounded visual pools, low-poly impact effects, procedural spatial audio.
-import {createStyledVFX} from './styled_vfx.js?v=076';
+import {createStyledVFX} from './styled_vfx.js?v=077';
 import {createBloodDecals} from './blood_decal.js?v=075';
 export function createCombatFX(T,scene,height,camera){
  const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z), rnd=Math.random, dummy=new T.Object3D();

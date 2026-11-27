@@ -1,8 +1,8 @@
 // Texture-driven PSX effects: Binbun Muzzle Flash VFX and knowercoder BloodFX.
 // Fixed world-space flash planes, bounded smoke and blood particle pools.
-export const FLASH_LIFE=.34;
+export const FLASH_LIFE=.40;
 export const BLOOD_LIFE=1.20;
-export const FLASH_SCALE=1.34;
+export const FLASH_SCALE=1.48;
 export function flashFrame(age,dt){return age<0?0:age+Math.max(0,dt);}
 export function createStyledVFX(T,scene,camera){
  const root=new URL('./assets/curated/vfx/',import.meta.url),loader=new T.TextureLoader(),rnd=Math.random;
@@ -23,7 +23,7 @@ export function createStyledVFX(T,scene,camera){
  let fi=0,ci=0,bi=0;
  function cloud(p,d){const c=clouds[ci++%clouds.length];c.p.copy(p);c.vel.copy(d).multiplyScalar(.48).add(v((rnd()-.5)*.24,.16+rnd()*.18,(rnd()-.5)*.24));c.t=c.total=.66+rnd()*.20;c.s=.13+rnd()*.045;c.angle=rnd()*Math.PI*2;c.m.material.color.set(0xc2bcb1);c.m.material.opacity=.49;c.m.position.copy(p);c.m.scale.setScalar(c.s);c.m.visible=true;}
  function muzzle(p,d){const f=flashes[fi++%flashes.length];f.age=-1;f.g.position.copy(p).addScaledVector(d,.035);f.g.quaternion.setFromUnitVectors(z,d);f.g.rotateZ(rnd()*6.28);f.g.scale.setScalar(FLASH_SCALE*(.9+rnd()*.24));f.g.visible=true;shotLight.position.copy(p);shotLight.intensity=10;lightAge=-1;for(const m of f.mats)m.opacity=1;for(let i=0;i<3;i++)cloud(p,d);}
- function hit(p,d){const b=splats[bi++%splats.length];b.p.copy(p);b.vel.copy(d).multiplyScalar(.26);b.age=-1;b.total=BLOOD_LIFE;b.s=.50+rnd()*.12;b.g.position.copy(p);b.g.quaternion.setFromUnitVectors(z,d);b.g.rotateZ(rnd()*6.28);b.g.scale.setScalar(b.s);b.mat.alphaMap=frames[0];b.mat.opacity=.9;b.g.visible=true;}
+ function hit(p,d){const b=splats[bi++%splats.length];b.p.copy(p);b.vel.copy(d).multiplyScalar(.26);b.age=-1;b.total=BLOOD_LIFE;b.s=.66+rnd()*.16;b.g.position.copy(p);b.g.quaternion.setFromUnitVectors(z,d);b.g.rotateZ(rnd()*6.28);b.g.scale.setScalar(b.s);b.mat.alphaMap=frames[0];b.mat.opacity=.9;b.g.visible=true;}
  function update(dt){
  lightAge=flashFrame(lightAge,dt);shotLight.intensity=10*Math.max(0,1-lightAge/.20);
  for(const f of flashes)if(f.g.visible){f.age=flashFrame(f.age,dt);const k=Math.max(0,1-f.age/FLASH_LIFE);f.g.visible=k>0;for(const m of f.mats)m.opacity=Math.min(1,k*1.6);}
