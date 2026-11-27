@@ -1,5 +1,5 @@
 // Bounded visual pools, low-poly impact effects, procedural spatial audio.
-import {createStyledVFX} from './styled_vfx.js?v=071';
+import {createStyledVFX} from './styled_vfx.js?v=072';
 export function createCombatFX(T,scene,height,camera){
  const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z), rnd=Math.random, dummy=new T.Object3D();
  const styled=createStyledVFX(T,scene,camera);
@@ -13,7 +13,7 @@ export function createCombatFX(T,scene,height,camera){
  function stain(p,size=.35){if(marks.length>=markMax)marks.shift();const dx=(height(p.x+.2,p.z)-height(p.x-.2,p.z))/.4,dz=(height(p.x,p.z+.2)-height(p.x,p.z-.2))/.4;const q=new T.Quaternion().setFromUnitVectors(v(0,1,0),v(-dx,1,-dz).normalize());q.multiply(new T.Quaternion().setFromAxisAngle(v(0,1,0),rnd()*6));marks.push({p:v(p.x,height(p.x,p.z)+.022,p.z),s:size,q,t:65});}
  function muzzle(p,d){styled.muzzle(p,d);sound('shot',p);}
  function impact(p,d,body=false){if(body){styled.hit(p,d);stain(p,.19+rnd()*.2);sound('hit',p);return;}for(let i=0;i<10;i++){const speed=.7+rnd()*3.8,vel=v((rnd()-.5)*2.5,rnd()*2.5,(rnd()-.5)*2.5).addScaledVector(d,-speed*.35);emit(p,vel,.025+rnd()*.04,.28+rnd()*.55,i%3===0?0xe1af67:0xa89b7e);}sound('ground',p);}
- function update(dt){styled.update(dt);let n=0;for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;if(p.life<=0){particles.splice(i,1);continue;}p.p.addScaledVector(p.v,dt);p.v.y-=9.8*dt;if(p.p.y<height(p.p.x,p.p.z)+.025){particles.splice(i,1);continue;}dummy.position.copy(p.p);dummy.rotation.set(p.spin+p.life*4,p.spin,p.life*3);dummy.scale.setScalar(p.s*Math.min(1,p.life*6));dummy.updateMatrix();bits.setMatrixAt(n,dummy.matrix);bits.setColorAt(n++,p.color);}bits.count=n;bits.instanceMatrix.needsUpdate=true;if(bits.instanceColor)bits.instanceColor.needsUpdate=true;
+ function update(dt){let n=0;for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;if(p.life<=0){particles.splice(i,1);continue;}p.p.addScaledVector(p.v,dt);p.v.y-=9.8*dt;if(p.p.y<height(p.p.x,p.p.z)+.025){particles.splice(i,1);continue;}dummy.position.copy(p.p);dummy.rotation.set(p.spin+p.life*4,p.spin,p.life*3);dummy.scale.setScalar(p.s*Math.min(1,p.life*6));dummy.updateMatrix();bits.setMatrixAt(n,dummy.matrix);bits.setColorAt(n++,p.color);}bits.count=n;bits.instanceMatrix.needsUpdate=true;if(bits.instanceColor)bits.instanceColor.needsUpdate=true;
  for(let i=marks.length-1;i>=0;i--){marks[i].t-=dt;if(marks[i].t<=0)marks.splice(i,1);}marks.forEach((p,i)=>{dummy.position.copy(p.p);dummy.quaternion.copy(p.q);dummy.scale.setScalar(p.s*Math.min(1,p.t/3));dummy.updateMatrix();stains.setMatrixAt(i,dummy.matrix);});stains.count=marks.length;stains.instanceMatrix.needsUpdate=true;}
- return {initAudio,sound,muzzle,impact,stain,update};
+ return {initAudio,sound,muzzle,impact,stain,update,present:styled.update};
 }

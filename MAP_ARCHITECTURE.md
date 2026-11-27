@@ -23,3 +23,6 @@ Low retains 06.9: 12/20 m. Medium 18/34, High 24/46, Ultra 30/60 m (distance to 
 
 ## 07.1
 Separate `swamp` map, existing `mist` unchanged. Swamp uses the existing vegetation LOD, local shadow radius and shared collision/physical world descriptor. `styled_vfx.js` implements compact world-space muzzle flashes, short blood atlas bursts and smoke; existing stains, bullets, combat cadence, input and locomotion are retained.
+
+## 07.2
+Swamp rework: no trees or tree colliders, Z-up FBX scene correction, grass uses Misc atlas, peat/mud texture transitions, clustered ground cover, scattered shallow pools and isolated buildings. Flash playback is advanced only before rendering, ensuring at least one full-brightness frame even with multiple fixed simulation ticks; side masks point forward. Existing shadows and gameplay unchanged.

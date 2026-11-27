@@ -6,7 +6,7 @@ import {prepareMalorian, socketPoint, MALORIAN} from './malorian_weapon.js?v=062
 import {clone as cloneRig} from 'three/addons/utils/SkeletonUtils.js';
 import {hitsCollider,hitsTreeRay} from './tree_collision.js?v=061';
 import {RULES as R,newCombat,canFire,fire,roll,reload,tickCombat,rollProgress,spread,sphereHit} from './duel_rules.js?v=043';
-import {createCombatFX} from './duel_fx.js?v=071';
+import {createCombatFX} from './duel_fx.js?v=072';
 import {makeSightCache,createHitFeedback,createProfiler,steeringChoice} from './duel_perf.js?v=070';
 import {createPlayerInput,keyCode,playerMotion,reticleDiameter} from './player_input.js?v=047';
 import {analogSpeed,approach,strideLength,gaitStride,movementFacing,sprintAvailable,createPoseLayer,locomotionMode,legacyLocomotion} from './character_motion.js?v=061';
@@ -295,7 +295,7 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
  function simulate(dt){const detailed=profiler.detailed;clock+=dt;damage=Math.max(0,damage-dt*2.7);camKick=Math.max(0,camKick-dt*7.5);while(noises.length&&clock-noises[0].t>3)noises.shift();for(const a of actors){const actorStart=detailed?performance.now():0;if(!a.alive){a.respawn-=dt;if(a.respawn<=0&&reset(a)){a.inv=1.5;if(a===hero){yaw=a.root.rotation.y-Math.PI;retX=retY=.5;cameraUpdate(.1,true);}}if(detailed)framePerf.respawn+=performance.now()-actorStart;continue;}a.inv=Math.max(0,a.inv-dt);if(a.kind==='monster'){updateMonster(a,dt);if(detailed)framePerf.monster+=performance.now()-actorStart;}else{const old=a.root.position.clone(),cmd=a===hero?playerCommand(dt):botCommand(a,dt),commandEnd=detailed?performance.now():0;advanceArmed(a,dt,cmd);if(detailed){if(a===hero)framePerf.player+=performance.now()-actorStart;else{framePerf.botAI+=commandEnd-actorStart;framePerf.botMove+=performance.now()-commandEnd;}}if(a!==hero){if(flatDist(old,a.root.position)<.005&&cmd.move.length()>.1)a.stuck+=dt;else a.stuck=Math.max(0,a.stuck-dt);}}}
  const fxStart=detailed?performance.now():0;updateBullets(dt);for(let i=corpses.length-1;i>=0;i--){const b=corpses[i];b.t+=dt;if(!b.settled){const f=clamp(b.t/.48,0,1),s=f*f*(3-2*f);b.pivot.rotation.set(b.back*s*1.40,0,b.side*s*.32);b.pivot.position.y=.88-.60*s;b.root.position.y=b.ground;if(f>=1){b.root.updateMatrixWorld(true);b.root.traverse(o=>{o.matrixAutoUpdate=false;});b.settled=true;}}if(b.t>65){scene.remove(b.root);b.root.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});corpses.splice(i,1);}}fx.update(dt);if(detailed)framePerf.fx+=performance.now()-fxStart;}
  const preview=new URLSearchParams(location.search).get('preview')==='1';if(preview&&new URLSearchParams(location.search).get('view')==='top')mode=2;
- cameraUpdate(.1,true);for(const a of actors)if(a.alive&&a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 07.1 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
+ cameraUpdate(.1,true);for(const a of actors)if(a.alive&&a.kind!=='monster')a.poseGun(a.aimPoint,0,a.weaponPose);status.textContent='Готово · сборка 07.2 · V — сменить камеру';start.disabled=false;hudUpdate();if(preview){menu.hidden=true;hud.hidden=false;dot.hidden=true;overheadVisibility();}
  const playerRenderPose=createRenderPose(hero.root);
  let last=performance.now(),acc=0;
  renderer.setAnimationLoop(now=>{
@@ -319,10 +319,10 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
    $('#damage').style.opacity=damage*.72;
    const q=camera.quaternion.clone(),shake=camKick*camKick;
    camera.rotateX(shake*(mode===1?.025:.009));camera.rotateZ(Math.sin(now*.07)*shake*.007);camera.updateMatrixWorld(true);
-   feedback.render(dt);
+   feedback.render(dt);fx.present(dt);
    const beforeRender=performance.now();profiler.beforeRender();graphics.render(mode,aiming,profiler.detailed);profiler.afterRender();profiler.sample(realDt,beforeRender-startSim,performance.now()-beforeRender,graphics.label,profiler.detailed?{...framePerf,graphics:graphics.diagnostics(),actors:actors.filter(a=>a.alive).length,corpses:corpses.length,bullets:projectiles.length,colliders:colliders.length,staticBatchStats,map:level.title,view:mode,zoom:aiming}:null);
    camera.quaternion.copy(q);camera.updateMatrixWorld(true);
    } finally {if(restorePose)playerRenderPose.restore();}
-  }else{acc=0;playerRenderPose.capturePrevious();updateEnvironment(dt,now);graphics.render(mode,aiming);}
+  }else{acc=0;playerRenderPose.capturePrevious();updateEnvironment(dt,now);fx.present(dt);graphics.render(mode,aiming);}
  });
 }
