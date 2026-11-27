@@ -26,3 +26,6 @@ Separate `swamp` map, existing `mist` unchanged. Swamp uses the existing vegetat
 
 ## 07.2
 Swamp rework: no trees or tree colliders, Z-up FBX scene correction, grass uses Misc atlas, peat/mud texture transitions, clustered ground cover, scattered shallow pools and isolated buildings. Flash playback is advanced only before rendering, ensuring at least one full-brightness frame even with multiple fixed simulation ticks; side masks point forward. Existing shadows and gameplay unchanged.
+
+## 07.4
+Swamp only: finer shared heightfield, multi-scale peat banks and hollows, footpaths follow terrain, tall clustered grass and sparse birch-dominant groves. Tree geometry is corrected to Y-up before fitting and anchored on its actual base; lower trunk collision is derived from the same visible mesh. Existing vegetation LOD, shadow settings, other maps, and combat remain unchanged.
