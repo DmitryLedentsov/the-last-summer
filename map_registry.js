@@ -1,6 +1,6 @@
 // Maps describe the scene; the sandbox owns gameplay and input.
 export const MAPS=Object.freeze({
- sunset:{title:'Лес за городом',subtitle:'Последний свет',builder:'forest',bots:6,monsters:12},
+ sunset:{title:'Лес за городом',subtitle:'Микрорайон у подножия',builder:'hillside',bots:6,monsters:12},
  mist:{title:'Туманная низина',subtitle:'До первого поезда',builder:'forest',bots:6,monsters:10},
  twilight:{title:'Каменный перевал',subtitle:'Место, которого нет',builder:'landscape',bots:4,monsters:6},
  courtyard:{title:'Забытый двор',subtitle:'03:17. Никого нет.',builder:'courtyard',bots:3,monsters:5},

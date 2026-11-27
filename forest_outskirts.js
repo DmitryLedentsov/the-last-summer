@@ -1,0 +1,77 @@
+import * as THREE from 'three';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+import {createHeightfield,buildTerrainGeometry} from './terrain.js';
+import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';
+import {HILLSIDE,SERPENTINE,groundHeight,roadAt,roadWeight,trailWeight,cityDistance,reserveTree} from './hillside_layout.js?v=066';
+
+const level={...HILLSIDE,title:'Лес за городом'};
+const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0xc29d91,.0085);
+const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,340);camera.rotation.order='YXZ';
+const renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1)*.8);renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.prepend(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xe4cdd1,0x807d65,1.5));
+const sun=new THREE.DirectionalLight(0xffc28f,2.0);sun.position.set(-95,47,-70);sun.castShadow=true;Object.assign(sun.shadow.camera,{left:-125,right:125,top:125,bottom:-125,near:1,far:340});sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0002;sun.shadow.normalBias=.035;scene.add(sun);
+const root=new URL('./assets/',import.meta.url),asset=p=>new URL(p,root).href,manager=new THREE.LoadingManager(),paths=new Map();
+for(let i=1;i<=6;i++)paths.set(i+'h.png','curated/houses/'+i+'h.png');for(let i=2;i<=7;i++)paths.set(i+'r.png','curated/street/'+i+'R.png');
+for(const n of ['dirt.JPG','grass.jpg','ivy.JPG','leaf.JPG','rock.jpg','sky.JPG','stone.JPG','stonebuild.JPG','stonewall.JPG','treeleaf.jpg','water.jpg','wood.JPG','woodplank.JPG'])paths.set(n.toLowerCase(),'curated/nature/'+n);
+for(const n of ['PSX_Bark2_128px.png','PSX_Bark3_128px.png','PSX_Bark5_128px.png','PSX_Bark6_128px.png','PSX_Bolder_128px.png','PSX_Dandelion_64px.png','PSX_Grass_128px.png','PSX_PINECone_64px.png','PSX_TreeCrown1_128px.png','PSX_TreeCrown2_128px.png','PSX_TreeCrown3_Tex_128px.png','PSX_TreeCrown4_Tex_128px.png','PSX_TreeEnd_64px.png','PSX_TreeInside_128px.png'])paths.set(n.toLowerCase(),'curated/forest/textures/'+n);
+manager.setURLModifier(p=>{if(p.startsWith('blob:')||p.startsWith('data:'))return p;let n=p.split(/[\\/]/).pop();try{n=decodeURIComponent(n);}catch{}return paths.has(n.toLowerCase())?asset(paths.get(n.toLowerCase())):p;});
+const tx=new THREE.TextureLoader(manager),fbx=new FBXLoader(manager);
+async function load(p,loader){try{return await loader.loadAsync(asset(p));}catch(e){console.warn('Hillside asset unavailable',p,e);return null;}}
+function tune(t){if(t){t.colorSpace=THREE.SRGBColorSpace;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestMipmapLinearFilter;t.anisotropy=2;}return t;}
+const names=['house07','house03','house02','busstop','garage01','garage02','garage03','electricbox01','wall'];
+const ground=n=>'curated/ground/PSX_Seamless_'+n+'_128px.png';
+const [sky,grass,earth,gravel,stoneTex,woodTex,forest,nature,entries]=await Promise.all([
+ load('derived/sunset.jpg',tx),load(ground('WildForestGrass'),tx),load(ground('ForestEarthGround'),tx),load(ground('ForestGravel_Ground'),tx),load('curated/nature/stone.JPG',tx),load('curated/nature/woodplank.JPG',tx),load('curated/forest/forest_collection.fbx',fbx),load('curated/nature/nature_collection.fbx',fbx),
+ Promise.all(names.map(async n=>[n,await load('curated/'+(n.startsWith('house')?'houses/':'street/')+n+'.fbx',fbx)]))
+]);
+if(!grass||!earth||!gravel||!forest)throw Error('Hillside: required terrain/forest assets missing');
+if(sky){sky.colorSpace=THREE.SRGBColorSpace;sky.mapping=THREE.EquirectangularReflectionMapping;scene.background=sky;}else scene.background=new THREE.Color(0xc99d86);
+const lib=Object.fromEntries(entries);for(const t of [grass,earth,gravel,stoneTex,woodTex])if(t){tune(t);t.wrapS=t.wrapT=THREE.RepeatWrapping;}
+const field=createHeightfield({size:level.size,segments:240,height:groundHeight}),height=field.sample;
+const geometry=buildTerrainGeometry(THREE,field,trailWeight),positions=geometry.getAttribute('position'),roads=new Float32Array(positions.count),colors=new Float32Array(positions.count*3);
+const green=new THREE.Color(0xd6d2b2),rockColor=new THREE.Color(0xb4a69a),c=new THREE.Color();
+for(let i=0;i<positions.count;i++){const x=positions.getX(i),z=positions.getZ(i),y=positions.getY(i);roads[i]=roadWeight(x,z);c.copy(green).lerp(rockColor,THREE.MathUtils.smoothstep(y,19,34)*.8);colors.set([c.r,c.g,c.b],i*3);}
+geometry.setAttribute('roadWeight',new THREE.BufferAttribute(roads,1));geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
+const terrainMat=new THREE.MeshStandardMaterial({map:grass,roughness:1,vertexColors:true});
+terrainMat.onBeforeCompile=s=>{s.uniforms.trailMap={value:earth};s.uniforms.roadMap={value:gravel};s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nattribute float trailWeight; attribute float roadWeight; varying float vTrail; varying float vRoad;').replace('#include <begin_vertex>','#include <begin_vertex>\nvTrail=trailWeight; vRoad=roadWeight;');s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D trailMap; uniform sampler2D roadMap; varying float vTrail; varying float vRoad;').replace('#include <map_fragment>','diffuseColor *= mix(mix(texture2D(map,vMapUv),texture2D(trailMap,vMapUv),smoothstep(0.0,1.0,vTrail)),texture2D(roadMap,vMapUv)*vec4(.62,.60,.56,1.),smoothstep(0.0,1.0,vRoad));');};
+const terrain=new THREE.Mesh(geometry,terrainMat);terrain.receiveShadow=true;scene.add(terrain);
+const colliders=[],interactions=[],treeBatches=[];
+let seed=4109;function rnd(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
+function prepare(o){o.traverse(n=>{if(!n.isMesh)return;n.castShadow=true;n.receiveShadow=true;for(const m of Array.isArray(n.material)?n.material:[n.material]){if(!m)continue;tune(m.map);if(m.map)m.color?.set(0xffffff);m.opacity=1;m.transparent=false;const cutout=/crown|corwn|grass|dandelion|leaf|bush|lavender|reed|plant/i.test(m.name+' '+n.name);if(cutout){m.alphaTest=.42;m.side=THREE.DoubleSide;m.alphaMap=null;}else m.alphaTest=0;if(m.specular)m.specular.setScalar(.025);m.needsUpdate=true;}});return o;}
+function fit(o,h,correction=0,w=null,d=null){const wrapper=new THREE.Group(),inner=new THREE.Group(),pivot=new THREE.Group();pivot.add(o);pivot.rotation.y=correction;inner.add(pivot);wrapper.add(inner);wrapper.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(pivot,true),size=b.getSize(new THREE.Vector3()),center=b.getCenter(new THREE.Vector3()),s=h/Math.max(.001,size.y);inner.scale.set(w==null?s:w/Math.max(.001,size.x),s,d==null?s:d/Math.max(.001,size.z));inner.position.set(-center.x*inner.scale.x,-b.min.y*s,-center.z*inner.scale.z);wrapper.updateMatrixWorld(true);return wrapper;}
+function template(collection,name,h){if(!collection)return null;collection.updateMatrixWorld(true);let found;collection.traverse(n=>{if(n.isMesh&&n.name.trim().toLowerCase()===name.toLowerCase())found=n;});if(!found)return null;const c=found.clone();found.matrixWorld.decompose(c.position,c.quaternion,c.scale);return fit(prepare(c),h);}
+function place(o,x,z,a=0,s=1){o.position.set(x,height(x,z),z);o.rotation.y=a;o.scale.setScalar(s);scene.add(o);o.updateMatrixWorld(true);return o;}
+function aabb(o,pad=.05){const b=new THREE.Box3().setFromObject(o,true);colliders.push({x0:b.min.x-pad,x1:b.max.x+pad,z0:b.min.z-pad,z1:b.max.z+pad,top:b.max.y});}
+function free(x,z,r=.32){return !colliders.some(c=>hitsCollider(c,x,z,r));}
+const mat=(color,map=null)=>new THREE.MeshStandardMaterial({color,map,roughness:1});
+const concrete=mat(0xb3aea2,stoneTex),iron=mat(0x575e59),rust=mat(0x8e6957),wood=mat(0xa08c71,woodTex),dark=mat(0x353b38);
+function box(w,h,d,m,x,y,z,parent=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
+function beam(a,b,r,m,parent=scene){const v=new THREE.Vector3().subVectors(b,a),o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,v.length(),6),m);o.position.copy(a).add(b).multiplyScalar(.5);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
+function batch(t,points,shadow=false,isTree=false){if(!t||!points.length)return;t.updateMatrixWorld(true);const dummy=new THREE.Object3D();t.traverse(n=>{if(!n.isMesh)return;const g=n.geometry.clone().applyMatrix4(n.matrixWorld),m=new THREE.InstancedMesh(g,n.material,points.length);points.forEach(([x,z,s,a],i)=>{dummy.position.set(x,height(x,z)-.025,z);dummy.rotation.set(0,a,0);dummy.scale.setScalar(s);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.instanceMatrix.needsUpdate=true;m.castShadow=shadow;m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);if(isTree)treeBatches.push({mesh:m,points});});}
+function inspect(x,z,prompt,message,radius=3){interactions.push({x,z,prompt:'E — '+prompt,message,radius});}
+function bench(x,z,a=0){const g=new THREE.Group();for(const dx of [-.85,.85]){box(.12,.5,.5,iron,dx,.25,0,g);box(.08,.85,.08,iron,dx,.48,-.22,g);}for(let i=0;i<3;i++)box(2.1,.065,.15,wood,0,.52,-.18+i*.17,g);for(let i=0;i<2;i++)box(2.1,.15,.06,wood,0,.76+i*.17,-.23,g);place(g,x,z,a);aabb(g);}
+function sign(x,z,a,line1,line2,message){const cv=document.createElement('canvas');cv.width=256;cv.height=128;const c=cv.getContext('2d');c.fillStyle='#b9b9a2';c.fillRect(0,0,256,128);c.strokeStyle='#4b5950';c.lineWidth=5;c.strokeRect(5,5,246,118);c.fillStyle='#35473d';c.font='bold 27px monospace';c.textAlign='center';c.fillText(line1,128,48);c.font='19px monospace';c.fillText(line2,128,88);const g=new THREE.Group();box(.12,1.9,.12,iron,0,.95,0,g);box(1.95,.85,.08,mat(0xffffff,tune(new THREE.CanvasTexture(cv))),0,1.65,0,g);place(g,x,z,a);colliders.push({x,z,r:.11,top:height(x,z)+2.1});inspect(x,z,'прочитать',message);}
+function prop(name,x,z,h,a=0,correction=-Math.PI/2,solid=true){const src=lib[name];if(!src)return null;const o=place(fit(prepare(src.clone(true)),h,correction),x,z,a);if(solid)aabb(o);return o;}
+function flatPad(x,z,w,d,m){const g=new THREE.PlaneGeometry(w,d,Math.ceil(w),Math.ceil(d));g.rotateX(-Math.PI/2);const p=g.getAttribute('position'),uv=g.getAttribute('uv');for(let i=0;i<p.count;i++){const xx=x+p.getX(i),zz=z+p.getZ(i);p.setY(i,height(xx,zz)+.035);uv.setXY(i,xx*.65,zz*.65);}g.computeVertexNormals();const o=new THREE.Mesh(g,m);o.position.set(x,0,z);o.receiveShadow=true;scene.add(o);}
+for(const site of level.houses){const {model,x,z,w,d,h,rot,correction}=site;const src=lib[model];if(!src)throw Error('Hillside house missing: '+model);const o=place(fit(prepare(src.clone(true)),h,correction,w,d),x,z,rot);aabb(o,.09);const b=new THREE.Box3().setFromObject(o,true),size=b.getSize(new THREE.Vector3());flatPad(x,z,size.x+1.6,size.z+1.6,concrete);}
+for(const [x,z,a] of [[-60,59,0],[-45,34,Math.PI],[-27,36,0],[-73,51,Math.PI/2],[-12,46,.2],[54,-64,.5]])bench(x,z,a);
+for(const [i,x] of [-88,-83,-78,-73].entries())prop('garage0'+(1+i%3),x,82,2.7,Math.PI,-Math.PI/2);
+prop('electricbox01',-73,35,1.25,Math.PI/2);prop('electricbox01',-19,64,1.25,0);
+const stop=prop('busstop',-58,49,2.55,0,-Math.PI/2,false);if(stop){const b=new THREE.Box3().setFromObject(stop,true);colliders.push({x0:b.min.x,x1:b.max.x,z0:b.min.z-.12,z1:b.min.z+.12,top:b.max.y});for(const x of [b.min.x+.12,b.max.x-.12])colliders.push({x,z:b.max.z-.15,r:.12,top:b.max.y});}
+inspect(-58,48,'осмотреть остановку','Последний автобус уходит в город. Дальше только лес.');
+sign(-11,42,0,'ЛЕСНАЯ','СЕРПАНТИН','За последними домами дорога поднимается на гору.');
+sign(58,-70,0,'ВЫСОТА','35 м','Отсюда видны крыши домов. Солнце ещё не село.');
+// Roadside posts and occasional steel rails follow the sampled terrain.
+let traveled=0,next=6,previous=null;
+for(let i=1;i<SERPENTINE.length;i++){const a=SERPENTINE[i-1],b=SERPENTINE[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);while(next<=traveled+len){const t=(next-traveled)/len,x=a[0]+dx*t-dz/len*3.1,z=a[1]+dz*t+dx/len*3.1,y=height(x,z);if(y>5){box(.13,.83,.13,concrete,x,y+.415,z);colliders.push({x,z,r:.085,top:y+.83});box(.14,.17,.14,rust,x,y+.76,z);const p=new THREE.Vector3(x,y+.62,z);if(previous&&previous.distanceTo(p)<7.8&&y>12)beam(previous,p,.055,iron);previous=p;}else previous=null;next+=6;}traveled+=len;}
+const tower=new THREE.Group();for(const x of [-.9,.9])for(const z of [-.9,.9])beam(new THREE.Vector3(x,0,z),new THREE.Vector3(x*.25,8,z*.25),.055,iron,tower);for(let y=1;y<8;y+=1.4)for(const z of [-.6,.6])beam(new THREE.Vector3(-.7,y,z),new THREE.Vector3(.7,y+1.3,z),.035,rust,tower);box(.2,2,.2,iron,0,8.7,0,tower);place(tower,65,-69);aabb(tower,.08);
+inspect(65,-69,'осмотреть вышку','Ветер раскачивает старые кабели. Внизу виден весь микрорайон.',4);
+const trees=['PSX_Tree1','PSX_Tree2','PSX_Tree3','PSX_Tree4'].map(n=>template(forest,n,8)),treePoints=trees.map(()=>[]),woodShapes=trees.map(t=>collectWoodTriangles(THREE,t)),centers=[];
+for(let n=0;n<4400&&centers.length<355;n++){const x=(rnd()-.5)*208,z=(rnd()-.5)*208,y=height(x,z);if(reserveTree(x,z)||!free(x,z,1.2)||centers.some(p=>Math.hypot(x-p[0],z-p[1])<3.4))continue;const density=y>27?.18:x>0&&z<-8?.60:.84;if(rnd()>density)continue;const j=Math.floor(rnd()*trees.length);if(!trees[j])continue;const s=.67+rnd()*.6,a=rnd()*Math.PI*2;centers.push([x,z]);treePoints[j].push([x,z,s,a]);colliders.push(combatTreeCollider(woodShapes[j],x,z,s,a,y-.025));}
+trees.forEach((t,i)=>batch(t,treePoints[i],true,true));
+const grassTemplate=template(forest,'PSX_Grass',.42),flower=template(forest,'PSX_Dandelion',.32),bush=template(nature,'Bush',.85),rock=template(forest,'PSX_Rock',.85);
+for(const [t,count,lo,hi,kind] of [[grassTemplate,9000,.55,1.45,'grass'],[flower,1000,.65,1.2,'flower'],[bush,420,.7,1.6,'bush'],[rock,310,.65,2.2,'rock']]){if(!t)continue;const points=[];for(let i=0;i<count*3&&points.length<count;i++){const x=(rnd()-.5)*210,z=(rnd()-.5)*210,y=height(x,z);if(Math.hypot(x-level.spawn[0],z-level.spawn[1])<3||roadAt(x,z).distance<3.6||trailWeight(x,z)>.5||!free(x,z,kind==='rock'?.55:.12)||Math.hypot(x-60,z+67)<6)continue;if(kind!=='rock'&&y>26&&rnd()<.7)continue;if(cityDistance(x,z)<1&&rnd()<.85)continue;const s=lo+(hi-lo)*rnd(),a=rnd()*Math.PI*2;points.push([x,z,s,a]);if(kind==='rock'&&s>1.35)colliders.push({x,z,r:.30*s,top:y+.7*s});}batch(t,points,kind==='rock');}
+scene.updateMatrixWorld(true);if(!free(...level.spawn,.48))throw Error('Hillside spawn obstructed');
+export const world={THREE,scene,camera,renderer,level,height,free,colliders,terrain,treeBatches,sun,extraTextures:[earth,gravel],interactions};
