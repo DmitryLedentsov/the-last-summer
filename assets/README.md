@@ -43,3 +43,6 @@
 
 ## Source archive collection (07.6)
 The complete user-supplied original ZIPs are preserved separately in the user's Library as `The Last Summer - source assets.zip`: BloodFX-main, MuzzleFlashVFX, both ABERRANT CURSE archives, Malorian and Stark Crafts Dark Fantasy. Runtime assets remain under curated; original third-party sources with unclear redistribution terms are not published wholesale in the public repository. See the collection manifest for exact original names.
+
+## 08.0 advanced muzzle and selectable stains
+BinbunVFX `muzzle_flash_02.tscn`: 3 long / 4 side / 1 front particles, hemisphere glow, point light, source alpha curves and fade equations ported in `advanced_muzzle.js`. `flash_long_02.png` is the original grayscale texture reduced to 384px; original front_03 and side_02 runtime textures reused. Procedural value noise approximates Godot FastNoiseLite; shader uses browser emissive color rather than Godot lighting/proximity pass. Scene scale .52 and lifetime .40s preserve our slower presentation. Source archive retained in Library. Simple stain mode restores 07.4 polygon stamps; both modes share hit events and 65s lifetime. Preferences independent, default advanced muzzle and BloodFX decals.

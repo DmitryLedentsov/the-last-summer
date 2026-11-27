@@ -59,5 +59,5 @@ export function createBloodDecals(T,scene,height){
   pos.needsUpdate=birth.needsUpdate=true;count=Math.min(capacity,count+1);geo.setDrawRange(0,count*segments*segments*6);
  }
  function update(dt){time+=Math.max(0,dt);uniforms.clock.value=time;}
- return {add,update};
+ return {add,update,setVisible(value){mesh.visible=!!value;}};
 }
