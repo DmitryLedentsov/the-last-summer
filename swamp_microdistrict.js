@@ -3,7 +3,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {unzlibSync} from 'three/addons/libs/fflate.module.js';
 import {createHeightfield,buildTerrainGeometry} from './terrain.js';
 import {hitsCollider,collectWoodTriangles,combatTreeCollider} from './tree_collision.js?v=061';
-import {createVegetationSystem,seededRandom} from './vegetation_system.js?v=070';
+import {createVegetationSystem,seededRandom} from './vegetation_system.js?v=076';
 import {splitStaticInstances} from './duel_perf.js?v=070';
 import {createSpatialGrid} from './spatial_grid.js?v=068';
 import {createWorldData} from './world_data.js?v=068';
@@ -83,11 +83,11 @@ for(const [n,count] of [['Grass1',22000],['Grass2',15000],['Bush1',1050],['Bush2
 const cabin=place(models.Cabin.clone(true),96,-63,.7);aabb(cabin);
 for(const [i,x,z,a] of [[1,-49,66,.2],[2,44,31,1.1],[3,40,-15,-.5],[4,88,-43,.8]])place(models['Sign'+i].clone(true),x,z,a);
 const glows=[];const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=64;const ctx=glowCanvas.getContext('2d'),gradient=ctx.createRadialGradient(32,32,1,32,32,31);gradient.addColorStop(0,'rgba(255,255,255,1)');gradient.addColorStop(.24,'rgba(255,255,255,.55)');gradient.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=gradient;ctx.fillRect(0,0,64,64);const halo=new THREE.CanvasTexture(glowCanvas);
-function glow(x,z,y,color,wanders=false){const m=new THREE.Sprite(new THREE.SpriteMaterial({map:halo,color,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));m.position.set(x,y,z);m.scale.setScalar(wanders?1.4:2.2);scene.add(m);glows.push({m,x,z,y,phase:rnd()*6.28,wanders});}
+function glow(x,z,y,color,anomaly=false){const m=new THREE.Sprite(new THREE.SpriteMaterial({map:halo,color,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));m.position.set(x,y,z);m.scale.setScalar(anomaly?1.4:2.2);scene.add(m);let light=null;if(anomaly){light=new THREE.PointLight(color,18,8,2);light.position.copy(m.position);light.castShadow=false;scene.add(light);}glows.push({m,light,phase:rnd()*6.28});}
 for(const [x,z,a] of [[-43,70,0],[-18,58,1],[43,32,0],[43,-13,.5],[96,-61,1]]){place(models.Lantern.clone(true),x,z,a);glow(x,z,height(x,z)+.43,0xffac55);}
-for(const [x,z] of [[-13,11],[22,-3],[-71,-46],[80,-73],[-6,-75],[15,88]]){glow(x,z,Math.max(WATER+.3,height(x,z)+.4),0x6dc5ad,true);}
+for(const [x,z,color] of [[-13,11,0x68dfae],[22,-3,0x8fa9ff],[-71,-46,0xff784d],[80,-73,0xd78bff],[-6,-75,0x8ff6f2],[15,88,0xe9ce63]]){glow(x,z,Math.max(WATER+.7,height(x,z)+.85),color,true);}
 interactions.push({x:96,z:-61,radius:4,prompt:'E — осмотреть домик',message:'В домике горит фонарь. Здесь давно никто не живёт.'},{x:-18,z:58,radius:3,prompt:'E — осмотреть дорогу',message:'Вода поднялась выше дороги. Дальше только болото.'});
-function updateEnvironment(dt,now){for(const o of glows){const t=now*.001+o.phase;o.m.material.opacity=.65+.23*Math.sin(t*1.7)+.09*Math.sin(t*9);if(o.wanders){o.m.position.x=o.x+Math.sin(t*.3)*2.1;o.m.position.z=o.z+Math.cos(t*.27)*1.5;o.m.position.y=o.y+Math.sin(t*.6)*.18;}}}
+function updateEnvironment(dt,now){for(const o of glows){const t=now*.001+o.phase,pulse=.85+.15*Math.sin(t*1.7);o.m.material.opacity=pulse;if(o.light)o.light.intensity=18*pulse;}}
 const chunkedTrees=splitStaticInstances(THREE,scene,treeBatches,64),physics=createWorldData({id:'swamp',revision:'074-static',level,field,colliders});
 for(const [model,points] of pendingVegetation)vegetation.add(model,points);
 if(!free(...level.spawn,.48)||!canEnter(...level.spawn))throw Error('Swamp spawn blocked');

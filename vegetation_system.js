@@ -8,7 +8,7 @@ export const VEGETATION_PROFILES=Object.freeze([
  {near:30,far:60,mid:.25}
 ].map(Object.freeze));
 export const VEGETATION_PROFILE=VEGETATION_PROFILES[0];
-export function vegetationProfile(quality=1){return VEGETATION_PROFILES[Math.max(0,Math.min(3,Number.isInteger(quality)?quality:1))];}
+export function vegetationProfile(quality=1,farOverride=null){const p=VEGETATION_PROFILES[Math.max(0,Math.min(3,Number.isInteger(quality)?quality:1))];if(!Number.isFinite(farOverride))return p;const far=Math.max(15,Math.min(80,farOverride));return {near:Math.min(far,Math.max(10,far*.46)),far,mid:p.mid};}
 export function seededRandom(seed){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
 export function partitionPlants(points,size=24){
  const chunks=new Map();
@@ -16,15 +16,15 @@ export function partitionPlants(points,size=24){
  return [...chunks.values()];
 }
 export function distanceToChunk(x,z,c){return Math.hypot(Math.max(c.x-x,0,x-c.x-c.size),Math.max(c.z-z,0,z-c.z-c.size));}
-export function densityFor(distance,quality=1,previous=1){
- const p=vegetationProfile(quality),h=1.5;
+export function densityFor(distance,quality=1,previous=1,farOverride=null){
+ const p=vegetationProfile(quality,farOverride),h=1.5;
  // Keep the entire near-field density identical across quality presets.
  if(distance<=p.near+(previous===1?h:0))return 1;
  if(distance<=p.far+(previous>0?h:0))return p.mid;
  return 0;
 }
 export function createVegetationSystem(T,scene,height,{chunkSize=12}={}){
- const chunks=[],dummy=new T.Object3D();let lastX=Infinity,lastZ=Infinity,lastQuality=-1,active=0,total=0,activeChunks=0,activeMeshes=0;
+ const chunks=[],dummy=new T.Object3D();let lastX=Infinity,lastZ=Infinity,lastQuality=-1,lastFar=null,active=0,total=0,activeChunks=0,activeMeshes=0;
  function add(template,points){
   if(!template||!points.length)return;
   template.updateMatrixWorld(true);
@@ -38,13 +38,13 @@ export function createVegetationSystem(T,scene,height,{chunkSize=12}={}){
   }
   lastQuality=-1;
  }
- function update(position,quality=1){
-  const {x,z}=position;const changed=quality!==lastQuality;
+ function update(position,quality=1,farOverride=null){
+  const {x,z}=position;const changed=quality!==lastQuality||farOverride!==lastFar;
   if(!changed&&Math.hypot(x-lastX,z-lastZ)<1.5)return;
-  lastX=x;lastZ=z;lastQuality=quality;active=activeChunks=activeMeshes=0;
-  for(const c of chunks){const d=densityFor(Math.hypot(x-c.x-c.size/2,z-c.z-c.size/2),quality,changed?0:c.density),count=d>0?Math.max(1,Math.floor(c.capacity*d)):0;
+  lastX=x;lastZ=z;lastQuality=quality;lastFar=farOverride;active=activeChunks=activeMeshes=0;
+  for(const c of chunks){const d=densityFor(Math.hypot(x-c.x-c.size/2,z-c.z-c.size/2),quality,changed?0:c.density,farOverride),count=d>0?Math.max(1,Math.floor(c.capacity*d)):0;
    if(d!==c.density){for(const m of c.meshes){m.count=count;m.visible=count>0;}c.density=d;}active+=count;if(count){activeChunks++;activeMeshes+=c.meshes.length;}
   }
  }
- return {add,update,stats:()=>({chunks:chunks.length,total,active,activeChunks,activeMeshes,profile:vegetationProfile(lastQuality<0?1:lastQuality)})};
+ return {add,update,stats:()=>({chunks:chunks.length,total,active,activeChunks,activeMeshes,profile:vegetationProfile(lastQuality<0?1:lastQuality,lastFar)})};
 }

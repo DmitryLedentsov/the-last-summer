@@ -1,14 +1,18 @@
 import {createSceneStyles} from './scene_style.js?v=056';
 import {createPipeline} from './graphics_pipeline_legacy.js?v=069';
 import {createLocalShadows} from './local_shadows.js?v=069';
-import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=073';
-export {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=073';
+import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles,normalizeGraphics,DEFAULT_GRAPHICS} from './graphics_settings.js?v=076';
+export {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles} from './graphics_settings.js?v=076';
 export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,height,extraTextures=[],vegetation=null,vegetationOrigin=null,localShadowRadius=0,onChange=()=>{}}){
- let style=0,quality=2,postFailed=false,appliedStyle=-1;
+ const key='tls.graphics.v1';let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
+ let {style,quality,grassDistance}=normalizeGraphics(saved),postFailed=false,appliedStyle=-1;
+ function preferences(){return {style,quality,grassDistance};}
+ function persist(){try{localStorage.setItem(key,JSON.stringify(preferences()));}catch{}}
  const query=new URLSearchParams(location.search);
  const requestedStyle=findStyle(query.get('style'));
  const requestedQuality=QUALITIES.findIndex(q=>q.name===query.get('quality')?.toUpperCase());
  if(requestedStyle>=0)style=requestedStyle;if(requestedQuality>=0)quality=requestedQuality;
+ if(query.has('grass'))grassDistance=normalizeGraphics({grassDistance:Number(query.get('grass'))}).grassDistance;
  const bufferSize=new T.Vector2(),applyTextures=createTextureProfiles(T,collectTextures(scene,extraTextures),renderer.capabilities.getMaxAnisotropy());
  const looks=createSceneStyles(T,{scene,renderer,sun,actors,height});
  const pipeline=createPipeline(T,renderer,scene,camera),localShadows=localShadowRadius?createLocalShadows(T,scene,sun,localShadowRadius):null;
@@ -29,7 +33,7 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
  }
  function render(mode=1,zoom=false,debug=false){
   const t=debug?performance.now():0;
-  vegetation?.update(vegetationOrigin||camera.position,quality);localShadows?.update(vegetationOrigin||camera.position);looks.update();
+  vegetation?.update(vegetationOrigin||camera.position,quality,grassDistance);localShadows?.update(vegetationOrigin||camera.position);looks.update();
   const cfg=graphicsSettings(style,quality,{mode,zoom}),prep=debug?performance.now()-t:0;
   let sceneMs=0,sceneCalls=0,sceneTriangles=0,shadowMs=0,shadowCalls=0,shadowTriangles=0;
   const markScene=debug?ms=>{sceneMs=ms;sceneCalls=renderer.info.render.calls;sceneTriangles=renderer.info.render.triangles;}:null;
@@ -48,9 +52,12 @@ export function createGraphics(T,{renderer,scene,camera,sun,terrain,actors,heigh
   if(debug){renderer.getDrawingBufferSize(bufferSize);renderStats={prep,sceneMs,shadowMs,shadowCalls,shadowTriangles,postMs:Math.max(0,performance.now()-start-sceneMs),sceneCalls,sceneTriangles,postCalls:Math.max(0,renderer.info.render.calls-sceneCalls),width:bufferSize.x,height:bufferSize.y};}
  }
  function diagnostics(){return {...renderStats,vegetation:vegetation?.stats(),shadow:localShadows?.stats()||{radius:0,resolution:sun.shadow.mapSize.x}};}
- function setQuality(index){quality=(index+QUALITIES.length)%QUALITIES.length;apply();}
- function cycleQuality(){setQuality(quality+1);}
- function cycleStyle(){style=(style+1)%STYLES.length;apply();}
+ function setQuality(index){quality=normalizeGraphics({quality:index}).quality;apply();persist();}
+ function cycleQuality(){setQuality((quality+1)%QUALITIES.length);}
+ function setStyle(index){style=normalizeGraphics({style:index}).style;apply();persist();}
+ function cycleStyle(){setStyle((style+1)%STYLES.length);}
+ function setGrassDistance(value){grassDistance=normalizeGraphics({grassDistance:value}).grassDistance;persist();}
+ function resetPreferences(){({style,quality,grassDistance}=DEFAULT_GRAPHICS);apply();persist();}
  apply();
- return {render,diagnostics,resize,setQuality,cycleQuality,cycleStyle,explicitQuality:requestedQuality>=0,get overheadLens(){return STYLES[style].lens||1;},get label(){return label();}};
+ return {render,diagnostics,resize,setQuality,setStyle,setGrassDistance,cycleQuality,cycleStyle,preferences,resetPreferences,hasVegetation:!!vegetation,explicitQuality:requestedQuality>=0,get overheadLens(){return STYLES[style].lens||1;},get label(){return label();}};
 }

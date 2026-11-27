@@ -54,3 +54,6 @@ export function createTextureProfiles(T,textures,maxAnisotropy){
  };
 }
 
+
+export const DEFAULT_GRAPHICS=Object.freeze({style:1,quality:1,grassDistance:52});
+export function normalizeGraphics(input={}){const bounded=(x,n,d)=>Number.isInteger(x)&&x>=0&&x<n?x:d;return {style:bounded(input?.style,STYLES.length,DEFAULT_GRAPHICS.style),quality:bounded(input?.quality,QUALITIES.length,DEFAULT_GRAPHICS.quality),grassDistance:Number.isFinite(input?.grassDistance)?Math.max(15,Math.min(80,Math.round(input.grassDistance))):DEFAULT_GRAPHICS.grassDistance};}
