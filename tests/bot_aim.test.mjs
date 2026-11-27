@@ -1,0 +1,3 @@
+import assert from 'node:assert/strict';
+import {botAimProfile,botAimError,botReadyToShoot} from '../bot_aim.js';
+const p=botAimProfile(.5);const rng=()=>.75;assert.ok(p.reaction>.3);assert.ok(botAimProfile(0).error>botAimProfile(1).error);assert.ok(Math.hypot(...Object.values(botAimError(p,20,true,rng)))>Math.hypot(...Object.values(botAimError(p,5,false,rng))));assert.equal(botReadyToShoot({seenFor:.1,reaction:p.reaction,focus:1,range:2,aligned:true}),false);assert.equal(botReadyToShoot({seenFor:1,reaction:p.reaction,focus:1,range:8,aligned:false}),false);assert.equal(botReadyToShoot({seenFor:1,reaction:p.reaction,focus:1,range:8,aligned:true}),true);console.log('PASS NPC reaction, imprecision, alignment');

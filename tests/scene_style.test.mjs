@@ -42,3 +42,6 @@ for(let i=0;i<5;i++)for(const style of ['DIORAMA LEGACY','DIORAMA LEGACY CLEAR',
 console.log('PASS repeated style changes preserve all materials, terrain shader, textures, geometry, baseline light colors and exact Retro restoration');
 
 for(const name of Object.keys(LIGHT_PROFILES).filter(n=>n.startsWith('DIORAMA'))){const p=LIGHT_PROFILES[name],l=LIGHT_PROFILES['DIORAMA LEGACY'];assert.equal(p.sun,l.sun);assert.equal(p.fill,l.fill);assert.equal(p.exposure,l.exposure);}
+
+for(const p of Object.values(LIGHT_PROFILES))assert.equal(p.contact,0);
+const before=scene.children.length;const noContact=createSceneStyles(T,{scene,renderer,sun,actors:[{alive:true,root:{}}],height:()=>0});noContact.apply('DIORAMA LEGACY');noContact.update();assert.equal(scene.children.length,before);

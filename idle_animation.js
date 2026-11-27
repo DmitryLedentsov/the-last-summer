@@ -1,7 +1,7 @@
 // An ambient idle is a deliberate action, never a locomotion or combat base.
 export const IDLE_DELAY=2;
-export function idleActivity({commandSpeed=0,actualSpeed=0,turnRate=0,aim=false,zoom=false,fire=false,reload=false,roll=false,recover=false,hit=false}={}){
- return commandSpeed>.025||actualSpeed>.08||Math.abs(turnRate)>.12||aim||zoom||fire||reload||roll||recover||hit;
+export function idleActivity({commandSpeed=0,actualSpeed=0,turnRate=0,ignoreTurn=false,aim=false,zoom=false,fire=false,reload=false,roll=false,recover=false,hit=false}={}){
+ return commandSpeed>.025||actualSpeed>.08||(!ignoreTurn&&Math.abs(turnRate)>.12)||aim||zoom||fire||reload||roll||recover||hit;
 }
 export function advanceIdle(elapsed,dt,activity){
  const next=elapsed+Math.max(0,dt);return activity?0:next>=IDLE_DELAY-1e-9?IDLE_DELAY:next;

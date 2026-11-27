@@ -35,3 +35,6 @@ Default graphics: DIORAMA LEGACY / MEDIUM / 52m ground-cover range; settings pan
 
 ## 07.8 combat presentation
 Directional impact overlays and additional grip recoil are applied only in rendering and restored afterward; original combat rule timings, hit shapes and bullet physics remain. Corpses lean and travel in the direction of hit plus pre-death movement with terrain-bounded travel and a settling sound. Brass casing pool (40) is cosmetic. Synthetic shot/action/body/surface audio, explicit metal/concrete/wood tags on relevant swamp/hillside props and water contact classification on the swamp. No hitstop. The original Malorian mesh is one piece: no separate slide animation.
+
+## 07.9
+Remove brass casing simulation/audio and the old artificial Diorama contact-shadow discs; normal authored shadows remain. Player camera movement alone no longer cancels ambient idle. NPC aim uses discrete observations, a persistent sampled error, limited tracking and reaction time. Player combat and projectile rules unchanged. Muzzle effect remains a Three.js adaptation of the archive's front and side textures on intersecting planes, not a complete port of Godot's long-flash/glow shader.

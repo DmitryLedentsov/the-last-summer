@@ -1,4 +1,4 @@
-import {createSceneStyles} from './scene_style.js?v=056';
+import {createSceneStyles} from './scene_style.js?v=079';
 import {createPipeline} from './graphics_pipeline_legacy.js?v=069';
 import {createLocalShadows} from './local_shadows.js?v=069';
 import {STYLES,QUALITIES,graphicsSettings,findStyle,collectTextures,createTextureProfiles,normalizeGraphics,DEFAULT_GRAPHICS} from './graphics_settings.js?v=076';

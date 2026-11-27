@@ -13,3 +13,5 @@ const clip=makeQuietIdle(T,{tracks:[head,hip]},{getObjectByName:name=>name==='Ri
 assert.equal(clip.name,'__quiet');assert.equal(clip.tracks[0].values[1],0);assert.equal(clip.tracks[0].values[7],1);
 assert.equal(clip.tracks[1].values[1],1);assert.equal(clip.tracks[1].values[4],1);assert.equal(head.values[1],.5);
 console.log('PASS two-second idle gate, activity cancellation, static neutral pose, source clips unchanged');
+
+assert.equal(idleActivity({turnRate:4,ignoreTurn:true}),false);assert.equal(advanceIdle(IDLE_DELAY,1/60,idleActivity({turnRate:4,ignoreTurn:true})),IDLE_DELAY);assert(idleActivity({turnRate:4,ignoreTurn:true,aim:true}));
