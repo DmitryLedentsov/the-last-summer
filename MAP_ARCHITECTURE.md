@@ -29,3 +29,6 @@ Swamp rework: no trees or tree colliders, Z-up FBX scene correction, grass uses 
 
 ## 07.4
 Swamp only: finer shared heightfield, multi-scale peat banks and hollows, footpaths follow terrain, tall clustered grass and sparse birch-dominant groves. Tree geometry is corrected to Y-up before fitting and anchored on its actual base; lower trunk collision is derived from the same visible mesh. Existing vegetation LOD, shadow settings, other maps, and combat remain unchanged.
+
+## 07.6
+Default graphics: DIORAMA LEGACY / MEDIUM / 52m ground-cover range; settings panel and localStorage persistence. Quality remains independent of the vegetation radius. Swamp anomaly sprites and point lights are stationary, individually colored and do not cast shadows. Blood hits use only BloodSplat (no BloodSmoke), larger and slower; muzzle flash is larger and longer.

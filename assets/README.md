@@ -40,3 +40,6 @@
 
 ## 07.5
 `blood_decal.js` ports the procedural UV/world-position two-noise mask, colors, thresholds and animated mask size from BloodFX `WorldPosDecal.shadergraph`, `WorldPosDecal.mat` and `BloodFXController.cs` (MIT). Ground-conforming pooled geometry replaces the previous polygon stamps. Unity-specific normal/metallic projection passes are not used in the lightweight PSX renderer.
+
+## Source archive collection (07.6)
+The complete user-supplied original ZIPs are preserved separately in the user's Library as `The Last Summer - source assets.zip`: BloodFX-main, MuzzleFlashVFX, both ABERRANT CURSE archives, Malorian and Stark Crafts Dark Fantasy. Runtime assets remain under curated; original third-party sources with unclear redistribution terms are not published wholesale in the public repository. See the collection manifest for exact original names.
