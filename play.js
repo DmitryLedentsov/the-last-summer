@@ -2,7 +2,7 @@ import './asset-cache.js?v=081';
 import {MAPS,resolveMap,populationFor} from './map_registry.js?v=071';
 import {startSurvival} from './survival_combat.js?v=081';
 const params=new URLSearchParams(location.search),id=resolveMap(params.get('map')||params.get('level')),map=MAPS[id];
-const loaders={swamp:()=>import('./swamp_microdistrict.js?v=078'),hillside:()=>import('./forest_outskirts.js?v=078'),forest:()=>import('./survival_map.js?v=076'),panel:()=>import('./landscape_panel.js?v=076'),landscape:()=>import('./landscape.js?v=076'),courtyard:()=>import('./game.js?v=076'),mindbreak:()=>import('./mindbreak.js?v=076')};
+const loaders={swamp:()=>import('./swamp_microdistrict.js?v=081'),hillside:()=>import('./forest_outskirts.js?v=081'),forest:()=>import('./survival_map.js?v=081'),panel:()=>import('./landscape_panel.js?v=081'),landscape:()=>import('./landscape.js?v=081'),courtyard:()=>import('./game.js?v=081'),mindbreak:()=>import('./mindbreak.js?v=081')};
 const {world}=await loaders[map.builder]();
 if(!world||typeof world.height!=='function'||!Array.isArray(world.colliders)||!world.level?.spawn||!world.sun)throw Error('Invalid map world: '+id);
 document.querySelector('#title').textContent=map.title;

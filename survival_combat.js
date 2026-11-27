@@ -377,10 +377,9 @@ export async function startSurvival({THREE:T,scene,camera,renderer,level,height,
    $('#damage').style.opacity=damage*.72;
    const q=camera.quaternion.clone(),shake=camKick*camKick;
    camera.rotateX(shake*(mode===1?.042:.012));camera.rotateZ(Math.sin(now*.07)*shake*.009);camera.updateMatrixWorld(true);
-   for(const b of corpses)b.root.visible=b.root.position.distanceToSquared(camera.position)<[35,50,65,85][graphics.preferences().quality]**2;
+   const corpseRange=[35,50,65,85][graphics.preferences().quality]**2;for(const b of corpses)b.root.visible=b.root.position.distanceToSquared(camera.position)<corpseRange;
    feedback.render(dt);fx.present(dt);applyCombatPresentation();
-   const beforeRender=performance.now();profiler.beforeRender();graphics.render(mode,aiming,profiler.detailed);profiler.afterRender();profiler.sample(realDt,beforeRender-startSim,performance.now()-beforeRender,graphics.label,profiler.detailed?{...framePerf,graphics:graphics.diagnostics(),effects:fx.stats(),actors:actors.filter(a=>a.alive).length,corpses:corpses.length,bullets:projectiles.length,colliders:colliders.length,staticBatchStats,map:level.title,view:mode,zoom:aiming}:null);
-   camera.quaternion.copy(q);camera.updateMatrixWorld(true);
+   const beforeRender=performance.now();profiler.beforeRender();try{graphics.render(mode,aiming,profiler.detailed);}finally{profiler.afterRender();camera.quaternion.copy(q);camera.updateMatrixWorld(true);}profiler.sample(realDt,beforeRender-startSim,performance.now()-beforeRender,graphics.label,profiler.detailed?{...framePerf,graphics:graphics.diagnostics(),effects:fx.stats(),actors:actors.filter(a=>a.alive).length,corpses:corpses.length,bullets:projectiles.length,colliders:colliders.length,staticBatchStats,map:level.title,view:mode,zoom:aiming}:null);
    } finally {restoreCombatPresentation();if(restorePose)playerRenderPose.restore();}
   }else{acc=0;playerRenderPose.capturePrevious();updateEnvironment(dt,now);fx.present(dt);graphics.render(mode,aiming);}
  });

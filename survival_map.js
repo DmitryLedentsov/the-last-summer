@@ -1,4 +1,4 @@
-import {createVegetationSystem} from './vegetation_system.js?v=076';
+import {createVegetationSystem} from './vegetation_system.js?v=081';
 import * as THREE from 'three';
 import {addMeadowFlowers} from './meadow_flowers.js';
 import {collectWoodTriangles,combatTreeCollider,hitsCollider} from './tree_collision.js?v=061';

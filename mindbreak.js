@@ -1,4 +1,4 @@
-import {createVegetationSystem} from './vegetation_system.js?v=076';
+import {createVegetationSystem} from './vegetation_system.js?v=081';
 import * as THREE from 'three';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
