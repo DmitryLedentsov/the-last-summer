@@ -27,7 +27,7 @@ export function splitStaticInstances(T,scene,treeBatches,size=36){
  return result;
 }
 export function poseInterval(distanceSquared,isPlayer=false){
- return isPlayer||distanceSquared<18*18?0:distanceSquared<42*42?1/30:1/15;
+ return isPlayer||distanceSquared<18*18?0:distanceSquared<42*42?1/30:distanceSquared<65*65?1/15:1/10;
 }
 export function takePoseDelta(actor,dt,distanceSquared,force=false,isPlayer=false){
  actor.poseElapsed=(actor.poseElapsed||0)+dt;
@@ -103,11 +103,11 @@ export function createProfiler(renderer,element){
  const num=n=>Math.round(n).toLocaleString('en-US');
  function sample(dt,simulationMs,renderMs,quality,data=null){
   if(!visible)return;frames++;elapsed+=dt;sim+=simulationMs;submit+=renderMs;calls+=renderer.info.render.calls;triangles+=renderer.info.render.triangles;frameTimes.push(dt*1000);
-  if(detail&&data){latest=data;for(const k of ['steps','player','botAI','botMove','monster','respawn','fx','sim'])totals[k]=(totals[k]||0)+(data[k]||0);for(const k of ['prep','sceneMs','postMs','sceneCalls','sceneTriangles','postCalls','shadowMs','shadowCalls','shadowTriangles'])totals[k]=(totals[k]||0)+(data.graphics?.[k]||0);}
+  if(detail&&data){latest=data;for(const k of ['steps','player','botAI','botMove','monster','respawn','fx','sim','poses'])totals[k]=(totals[k]||0)+(data[k]||0);for(const k of ['prep','sceneMs','postMs','sceneCalls','sceneTriangles','postCalls','shadowMs','shadowCalls','shadowTriangles'])totals[k]=(totals[k]||0)+(data.graphics?.[k]||0);}
   if(elapsed>=.6){const sorted=frameTimes.slice().sort((a,b)=>a-b),p95=sorted[Math.ceil(sorted.length*.95)-1],avg=k=>((totals[k]||0)/frames).toFixed(1),ms=n=>(n/frames).toFixed(1);
    let msg=Math.round(frames/elapsed)+' FPS | P95 '+p95.toFixed(1)+' ms | '+quality+'\nSIM+PRE '+ms(sim)+' | SUBMIT '+ms(submit)+' | GPU '+(gpuMs===null?'n/a':gpuMs.toFixed(1))+' ms\nDRAW '+num(calls/frames)+' | TRI '+num(triangles/frames);
    if(detail&&latest){const x=latest,g=x.graphics||{},v=g.vegetation,s=g.shadow,b=x.staticBatchStats;
-    msg+='\n07.0 '+x.map+' | V'+x.view+(x.zoom?' ZOOM':'')+' | '+g.width+'x'+g.height;
+    msg+='\n08.1 '+x.map+' | V'+x.view+(x.zoom?' ZOOM':'')+' | '+g.width+'x'+g.height;
     msg+='\nTICKS '+avg('steps')+' | SIM '+avg('sim')+' | CAM/HUD '+Math.max(0,(sim-(totals.sim||0))/frames).toFixed(1)+' ms';
     msg+='\nPLAYER '+avg('player')+' | BOT AI '+avg('botAI')+' | BOT POSE/MOVE '+avg('botMove');
     msg+='\nMONSTERS '+avg('monster')+' | RESPAWN '+avg('respawn')+' | FX '+avg('fx')+' ms';
@@ -116,6 +116,7 @@ export function createProfiler(renderer,element){
     msg+='\nSCENE DRAW '+num((totals.sceneCalls||0)/frames)+' | POST '+num((totals.postCalls||0)/frames)+' | TRI '+num((totals.sceneTriangles||0)/frames);
     msg+='\nACTORS '+x.actors+' | CORPSES '+x.corpses+' | BULLETS '+x.bullets+' | COL '+x.colliders;
     if(v){msg+='\nGRASS '+num(v.active)+'/'+num(v.total)+' | BATCH '+v.activeChunks+'/'+v.chunks+' | MESH '+v.activeMeshes;if(v.profile)msg+=' | LOD '+v.profile.near+'/'+v.profile.far+'m';}
+    if(g.terrain)msg+='\nTERRAIN '+num(g.terrain.triangles)+'/'+num(g.terrain.full)+' TRI | '+g.terrain.chunks+' CHUNKS';if(g.lights)msg+='\nLIGHTS '+g.lights.active+'/'+g.lights.total+' | POOL '+g.lights.pool;if(x.effects)msg+='\nBLOOD '+x.effects.visibleMarks+'/'+x.effects.marks+' | FLASH '+x.effects.flash+' | SPLAT '+x.effects.splats+' | SMOKE '+x.effects.smoke+' | BITS '+x.effects.bits;msg+='\nPOSE UPDATES '+avg('poses')+'/FRAME';
     if(s)msg+='\nSHADOW '+(s.radius?'LOCAL '+s.radius+'m':'MAP')+' / '+s.resolution+(b?' | STATIC SAVED '+b.saved:'');
    }output.textContent=msg;reset();}
  }
