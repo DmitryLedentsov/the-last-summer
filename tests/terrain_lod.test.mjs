@@ -1,3 +1,5 @@
 import assert from 'node:assert/strict';
 import {chunkIndices} from '../terrain_lod.js';
 const full=chunkIndices(24,24,1),coarse=chunkIndices(24,24,4);assert.equal(full.length,24*24*6);assert.ok(coarse.length<full.length);const edges=new Set(coarse);for(let i=0;i<=24;i++)for(const n of [i,24*25+i,i*25,i*25+24])assert.ok(edges.has(n));for(const i of coarse)assert.ok(i>=0&&i<625);console.log('PASS terrain reduction and exact border vertices');
+for(const w of [4,12,16,24])for(const h of [4,12,16,24])for(const stride of [1,2,4]){const idx=chunkIndices(w,h,stride),at=n=>[n%(w+1),Math.floor(n/(w+1))];let sum=0;for(let i=0;i<idx.length;i+=3){const [a,b,c]=idx.slice(i,i+3).map(at),area=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);assert.ok(area<0);sum-=area;}assert.equal(sum,2*w*h);const used=new Set(idx);for(let i=0;i<=w;i++){assert.ok(used.has(i));assert.ok(used.has(h*(w+1)+i));}for(let j=0;j<=h;j++){assert.ok(used.has(j*(w+1)));assert.ok(used.has(j*(w+1)+w));}}
+console.log('PASS exact winding, area and boundary coverage for all supported edge chunks');

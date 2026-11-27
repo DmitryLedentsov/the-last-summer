@@ -1,0 +1,3 @@
+import assert from 'node:assert/strict';
+import {disposeResources} from '../resource_lifecycle.js';
+let n=0;const resource=()=>({dispose(){n++;}}),t={isTexture:true,...resource()},g=resource(),m={...resource(),map:t,uniforms:{noise:{value:t}}},s=resource();const node={geometry:g,material:[m,m],skeleton:s};const root={background:t,traverse(fn){fn(node);fn(node);}};const stats=disposeResources([root,root],[t]);assert.equal(n,4);assert.equal(stats.geometries,1);assert.equal(stats.materials,1);assert.equal(stats.textures,1);assert.equal(stats.skeletons,1);console.log('PASS shared resources disposed once');
